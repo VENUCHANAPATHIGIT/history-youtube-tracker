@@ -12,9 +12,10 @@ const PHASES = [
   { n: 6, label: "Image-to-Video Prompts" },
   { n: 7, label: "Metadata Package" },
   { n: 8, label: "Video Editing" },
+  { n: 9, label: "Upload Status" },
 ];
 
-const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending" });
+const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending" });
 
 const seedState = () => {
   const now = Date.now();
@@ -26,12 +27,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), scenes: 30, targetMin: 7, actualMin: "", source: "", completionDate: "", notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", account: "a2", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 10, targetMin: 7, actualMin: 7, source: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", account: "a3", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 15, targetMin: 7, actualMin: 7, source: "", completionDate: "", notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 30, targetMin: 7, actualMin: 7, source: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", account: "a2", phases: mk({ 1: "done", 2: "active" }), scenes: 30, targetMin: 7, actualMin: "", source: "", completionDate: "", notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", account: "a3", phases: mk({ 1: "done", 2: "active" }), scenes: 0, targetMin: 7, actualMin: "", source: "", completionDate: "", notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", account: "a2", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 10, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", account: "a3", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 15, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 30, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", account: "a2", phases: mk({ 1: "done", 2: "active" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", account: "a3", phases: mk({ 1: "done", 2: "active" }), scenes: 0, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "", updated: now },
     ],
   };
 };
@@ -182,7 +183,7 @@ function Tracker({ user }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", account: s.accounts[0]?.id || "a1", phases: emptyPhases(), scenes: "", targetMin: 7, actualMin: "", source: "", completionDate: "", notes: "", updated: Date.now() },
+        { id, name: "New Topic", account: s.accounts[0]?.id || "a1", phases: emptyPhases(), scenes: "", targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -358,7 +359,7 @@ function Tracker({ user }) {
 
               <textarea value={t.notes} onChange={(e) => updateTopic(t.id, { notes: e.target.value })} placeholder="Notes — blockers, decisions pending, rate limits hit…" style={{ width: "100%" }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 150px", gap: 8, marginTop: 10 }}>
                 <div>
                   <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>SOURCE</div>
                   <textarea
@@ -366,6 +367,15 @@ function Tracker({ user }) {
                     onChange={(e) => updateTopic(t.id, { source: e.target.value })}
                     placeholder="Where you gathered info from — book, site, paper, documentary…"
                     style={{ width: "100%", minHeight: 34 }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>START DATE</div>
+                  <input
+                    type="date"
+                    value={t.startDate || ""}
+                    onChange={(e) => updateTopic(t.id, { startDate: e.target.value })}
+                    style={{ width: "100%" }}
                   />
                 </div>
                 <div>
