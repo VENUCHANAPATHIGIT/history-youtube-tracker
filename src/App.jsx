@@ -251,6 +251,34 @@ function Tracker({ user }) {
     return acc;
   }, {});
 
+  // ---- Summary stats ----
+  const currentPhaseOf = (topic) => {
+    for (const p of PHASES) {
+      const status = topic.phases[p.n] || (p.n === 3 ? "skipped" : "pending");
+      if (status === "pending" || status === "active") return p;
+    }
+    return null; // all phases done/skipped = fully complete
+  };
+  const phaseCounts = {};
+  PHASES.forEach((p) => (phaseCounts[p.n] = 0));
+  let completedTopics = 0;
+  state.topics.forEach((t) => {
+    const cp = currentPhaseOf(t);
+    if (cp) phaseCounts[cp.n]++;
+    else completedTopics++;
+  });
+  let resolvedDots = 0;
+  let totalDots = 0;
+  state.topics.forEach((t) => {
+    PHASES.forEach((p) => {
+      const status = t.phases[p.n] || (p.n === 3 ? "skipped" : "pending");
+      totalDots++;
+      if (status === "done" || status === "skipped") resolvedDots++;
+    });
+  });
+  const overallPct = totalDots ? Math.round((resolvedDots / totalDots) * 100) : 0;
+  const totalTopics = state.topics.length;
+
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px" }}>
       <style>{`
@@ -275,6 +303,61 @@ function Tracker({ user }) {
             <button onClick={triggerImport} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Restore</button>
             <button onClick={() => signOut(auth)} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Sign out</button>
             <input ref={fileInputRef} type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "center", background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, marginBottom: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div
+              style={{
+                width: 84,
+                height: 84,
+                borderRadius: "50%",
+                background: `conic-gradient(#4C9A5B ${overallPct * 3.6}deg, #2C4053 0deg)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ width: 62, height: 62, borderRadius: "50%", background: "#1D2E3B", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{overallPct}%</div>
+                <div style={{ fontSize: 8, color: "#8FA5B3" }}>complete</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 18 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 600 }}>{totalTopics}</div>
+                <div style={{ fontSize: 10, color: "#8FA5B3" }}>total topics</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: "#4C9A5B" }}>{completedTopics}</div>
+                <div style={{ fontSize: 10, color: "#8FA5B3" }}>fully done</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 600, color: "#D9A73B" }}>{totalTopics - completedTopics}</div>
+                <div style={{ fontSize: 10, color: "#8FA5B3" }}>still in progress</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 8, letterSpacing: 1 }}>TOPICS BY CURRENT PHASE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {PHASES.map((p) => {
+                const count = phaseCounts[p.n];
+                const pct = totalTopics ? (count / totalTopics) * 100 : 0;
+                return (
+                  <div key={p.n} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 130, fontSize: 11, color: "#B9C3CB", flexShrink: 0 }}>{p.n}. {p.label}</div>
+                    <div style={{ flex: 1, height: 8, background: "#14212B", borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: "#D9A73B" }} />
+                    </div>
+                    <div style={{ width: 18, fontSize: 11, color: "#8FA5B3", textAlign: "right" }}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
