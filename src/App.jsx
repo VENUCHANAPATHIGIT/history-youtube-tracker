@@ -119,6 +119,7 @@ function Tracker({ user }) {
   const [state, setState] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [filterAccount, setFilterAccount] = useState("all");
+  const [filterTopic, setFilterTopic] = useState("all");
   const [saveState, setSaveState] = useState("synced");
   const [syncFlash, setSyncFlash] = useState("");
   const saveTimer = useRef(null);
@@ -245,7 +246,9 @@ function Tracker({ user }) {
     );
   }
 
-  const visibleTopics = state.topics.filter((t) => filterAccount === "all" || t.account === filterAccount);
+  const visibleTopics = state.topics.filter(
+    (t) => (filterAccount === "all" || t.account === filterAccount) && (filterTopic === "all" || t.id === filterTopic)
+  );
   const accountCounts = state.accounts.reduce((acc, a) => {
     acc[a.id] = state.topics.filter((t) => t.account === a.id).length;
     return acc;
@@ -421,10 +424,16 @@ function Tracker({ user }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 8, flexWrap: "wrap" }}>
-          <select value={filterAccount} onChange={(e) => setFilterAccount(e.target.value)}>
-            <option value="all">All accounts</option>
-            {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <select value={filterAccount} onChange={(e) => setFilterAccount(e.target.value)}>
+              <option value="all">All accounts</option>
+              {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <select value={filterTopic} onChange={(e) => setFilterTopic(e.target.value)}>
+              <option value="all">All topics</option>
+              {state.topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
           <button onClick={addTopic} style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "8px 14px", fontWeight: 600, fontSize: 13 }}>+ New Topic</button>
         </div>
 
