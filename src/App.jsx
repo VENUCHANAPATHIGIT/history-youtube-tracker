@@ -279,6 +279,12 @@ function Tracker({ user }) {
   const overallPct = totalDots ? Math.round((resolvedDots / totalDots) * 100) : 0;
   const totalTopics = state.topics.length;
 
+  const doneCountOf = (t) => PHASES.filter((p) => t.phases[p.n] === "done").length;
+  const isFullyComplete = (t) => currentPhaseOf(t) === null;
+  const backlogTopics = state.topics.filter((t) => !isFullyComplete(t) && doneCountOf(t) === 0);
+  const inProgressTopics = state.topics.filter((t) => !isFullyComplete(t) && doneCountOf(t) >= 1);
+  const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
+
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px" }}>
       <style>{`
@@ -357,6 +363,45 @@ function Tracker({ user }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 24 }}>
+          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#D9A73B" }}>IN PROGRESS</div>
+              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{inProgressTopics.length}</div>
+            </div>
+            {inProgressTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing mid-flight right now.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {inProgressTopics.map((t) => {
+                const cp = currentPhaseOf(t);
+                return (
+                  <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
+                    <div style={{ color: "#E9E1CC" }}>{t.name}</div>
+                    <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                      {accountName(t.account)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#8C5A3C" }}>BACKLOG — NOT STARTED</div>
+              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{backlogTopics.length}</div>
+            </div>
+            {backlogTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Backlog is clear.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {backlogTopics.map((t) => (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
+                  <div style={{ color: "#E9E1CC" }}>{t.name}</div>
+                  <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountName(t.account)}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
