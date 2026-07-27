@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
+import FlowPlanner from "./FlowPlanner.jsx";
 
 const PHASES = [
   { n: 1, label: "Topic Generator" },
@@ -535,8 +536,103 @@ function Tracker({ user }) {
   );
 }
 
+function HomePage({ onNavigate }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" }}>
+      <div style={{ maxWidth: 640, width: "100%", textAlign: "center" }}>
+        <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 8 }}>HISTORY YOUTUBE CONTENT</div>
+        <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 600, margin: "0 0 8px" }}>Production Home</h1>
+        <p style={{ color: "#8FA5B3", fontSize: 14, marginBottom: 32 }}>Pick a workspace to jump into.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+          <button
+            onClick={() => onNavigate("ledger")}
+            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
+          >
+            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Production Ledger</div>
+            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Track topics, accounts, and pipeline phases end to end.</div>
+          </button>
+          <button
+            onClick={() => onNavigate("flow")}
+            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
+          >
+            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Flow Credits Planner</div>
+            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Split a script's scenes across your Google Flow accounts and track credits.</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavShell({ page, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const items = [
+    { id: "home", label: "Home" },
+    { id: "ledger", label: "Production Ledger" },
+    { id: "flow", label: "Flow Credits Planner" },
+  ];
+  return (
+    <>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Menu"
+        style={{
+          position: "fixed", top: 16, left: 16, zIndex: 50,
+          width: 36, height: 36, borderRadius: 6,
+          background: "#1D2E3B", border: "1px solid #3D5468", color: "#E9E1CC",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <div>
+          <div style={{ width: 16, height: 2, background: "#E9E1CC", marginBottom: 3 }} />
+          <div style={{ width: 16, height: 2, background: "#E9E1CC", marginBottom: 3 }} />
+          <div style={{ width: 16, height: 2, background: "#E9E1CC" }} />
+        </div>
+      </button>
+
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 40 }}
+        />
+      )}
+
+      <div
+        style={{
+          position: "fixed", top: 0, left: 0, bottom: 0, width: 240, zIndex: 45,
+          background: "#1D2E3B", borderRight: "1px solid #2C4053",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform .2s ease", padding: "70px 16px 16px",
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <div style={{ fontSize: 11, letterSpacing: 2, color: "#5C8A80", marginBottom: 14, paddingLeft: 8 }}>NAVIGATE</div>
+        {items.map((it) => (
+          <button
+            key={it.id}
+            onClick={() => { onNavigate(it.id); setOpen(false); }}
+            style={{
+              display: "block", width: "100%", textAlign: "left",
+              background: page === it.id ? "#2C4053" : "transparent",
+              color: page === it.id ? "#C9A54B" : "#B9C3CB",
+              border: "none", borderRadius: 6, padding: "10px 8px",
+              fontSize: 13, marginBottom: 4, cursor: "pointer",
+            }}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = signed out
+  const [page, setPage] = useState("home");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -549,5 +645,12 @@ export default function App() {
   if (!user) {
     return <LoginScreen />;
   }
-  return <Tracker user={user} />;
+  return (
+    <>
+      <NavShell page={page} onNavigate={setPage} />
+      {page === "home" && <HomePage onNavigate={setPage} />}
+      {page === "ledger" && <Tracker user={user} />}
+      {page === "flow" && <FlowPlanner user={user} />}
+    </>
+  );
 }
