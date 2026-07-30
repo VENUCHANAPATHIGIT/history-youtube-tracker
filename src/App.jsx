@@ -28,12 +28,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", account: "a2", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 10, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", account: "a3", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 15, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 30, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", account: "a2", phases: mk({ 1: "done", 2: "active" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", account: "a3", phases: mk({ 1: "done", 2: "active" }), scenes: 0, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", account: "a2", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 10, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", account: "a3", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 15, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 30, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", account: "a2", phases: mk({ 1: "done", 2: "active" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", account: "a3", phases: mk({ 1: "done", 2: "active" }), scenes: 0, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "", updated: now },
     ],
   };
 };
@@ -185,13 +185,14 @@ function Tracker({ user }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", account: s.accounts[0]?.id || "a1", phases: emptyPhases(), scenes: "", targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", notes: "", updated: Date.now() },
+        { id, name: "New Topic", account: s.accounts[0]?.id || "a1", phases: emptyPhases(), scenes: "", targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
   };
 
   const removeTopic = (id) => setState((s) => ({ ...s, topics: s.topics.filter((t) => t.id !== id) }));
+  const toggleClosed = (id) => updateTopic(id, { closed: !state.topics.find((t) => t.id === id)?.closed });
 
   const updateAccount = (id, patch) => setState((s) => ({ ...s, accounts: s.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a)) }));
 
@@ -285,8 +286,8 @@ function Tracker({ user }) {
 
   const doneCountOf = (t) => PHASES.filter((p) => t.phases[p.n] === "done").length;
   const isFullyComplete = (t) => currentPhaseOf(t) === null;
-  const backlogTopics = state.topics.filter((t) => !isFullyComplete(t) && doneCountOf(t) === 0);
-  const inProgressTopics = state.topics.filter((t) => !isFullyComplete(t) && doneCountOf(t) >= 1);
+  const inProgressTopics = state.topics.filter((t) => !t.closed);
+  const closedTopics = state.topics.filter((t) => t.closed);
   const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
 
   return (
@@ -395,15 +396,15 @@ function Tracker({ user }) {
 
           <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#8C5A3C" }}>BACKLOG — NOT STARTED</div>
-              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{backlogTopics.length}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#8FA5B3" }}>CLOSED</div>
+              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{closedTopics.length}</div>
             </div>
-            {backlogTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Backlog is clear.</div>}
+            {closedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics closed yet.</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {backlogTopics.map((t) => (
+              {closedTopics.map((t) => (
                 <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
-                  <div style={{ color: "#E9E1CC" }}>{t.name}</div>
-                  <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountName(t.account)}</div>
+                  <div style={{ color: "#8FA5B3" }}>{t.name}</div>
+                  <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountName(t.account)}</div>
                 </div>
               ))}
             </div>
@@ -453,13 +454,14 @@ function Tracker({ user }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {visibleTopics.length === 0 && <div style={{ color: "#6B7D8C", fontSize: 13, padding: "20px 0" }}>No topics for this account yet. Add one above.</div>}
           {visibleTopics.map((t) => (
-            <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16 }}>
+            <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                 <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 220px", border: "none", background: "transparent", padding: "2px 0" }} />
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <select value={t.account} onChange={(e) => updateTopic(t.id, { account: e.target.value })}>
                     {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
+                  <button onClick={() => toggleClosed(t.id)} style={{ background: t.closed ? "#2C4053" : "transparent", border: "1px solid #3D5468", color: t.closed ? "#8FA5B3" : "#C9A54B", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>{t.closed ? "Reopen" : "Close"}</button>
                   <button onClick={() => removeTopic(t.id)} style={{ background: "transparent", border: "1px solid #8C5A3C", color: "#C98C6E", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>Remove</button>
                 </div>
               </div>

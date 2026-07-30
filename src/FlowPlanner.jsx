@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import { signOut } from "firebase/auth";
 
-const CREDITS_PER_ACCOUNT = 100; // Google Flow's per-account credit allowance
+const CREDITS_PER_ACCOUNT = 50; // Google Flow's per-account credit allowance
 const CREDITS_PER_VIDEO = 10;
 
 function seedFlowState() {
