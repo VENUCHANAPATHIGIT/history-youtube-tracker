@@ -16,7 +16,7 @@ function seedFlowState() {
       { id: "fa5", name: "Flow Account 5" },
     ],
     topics: [
-      { id: "ft1", name: "New Topic", script: "", numScenes: 20, completedScenes: {}, updated: Date.now() },
+      { id: "ft1", name: "New Topic", script: "", numScenes: 20, completedScenes: {}, environments: {}, updated: Date.now() },
     ],
   };
 }
@@ -53,7 +53,9 @@ export default function FlowPlanner({ user }) {
       if (snap.exists()) {
         const data = snap.data();
         if (!data.topics) {
-          data.topics = [{ id: "ft1", name: "Migrated Script", script: data.script || "", numScenes: data.numScenes || 20, completedScenes: data.completedScenes || {}, updated: Date.now() }];
+          data.topics = [{ id: "ft1", name: "Migrated Script", script: data.script || "", numScenes: data.numScenes || 20, completedScenes: data.completedScenes || {}, environments: {}, updated: Date.now() }];
+        } else {
+          data.topics = data.topics.map((t) => (t.environments ? t : { ...t, environments: {} }));
         }
         setState(data);
       } else {
@@ -122,11 +124,19 @@ export default function FlowPlanner({ user }) {
       ),
     }));
   };
+  const updateEnvironment = (topicId, accountId, value) => {
+    setState((s) => ({
+      ...s,
+      topics: s.topics.map((t) =>
+        t.id === topicId ? { ...t, environments: { ...t.environments, [accountId]: value }, updated: Date.now() } : t
+      ),
+    }));
+  };
   const addTopic = () => {
     const id = "ft" + Date.now();
     setState((s) => ({
       ...s,
-      topics: [{ id, name: "New Topic", script: "", numScenes: 20, completedScenes: {}, updated: Date.now() }, ...s.topics],
+      topics: [{ id, name: "New Topic", script: "", numScenes: 20, completedScenes: {}, environments: {}, updated: Date.now() }, ...s.topics],
     }));
   };
   const removeTopic = (id) => {
@@ -264,10 +274,20 @@ export default function FlowPlanner({ user }) {
                   </table>
                 </div>
 
-                <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 8 }}>COMPLETION TRACKER</div>
+                <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 8 }}>ENVIRONMENT & COMPLETION BY ACCOUNT</div>
                 {allocation.map(({ account, scenes }) => (
-                  <div key={account.id} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 11, color: "#B9C3CB", marginBottom: 5 }}>{account.name}</div>
+                  <div key={account.id} style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: "#B9C3CB", marginBottom: 5 }}>
+                      {account.name}{scenes.length > 0 ? ` — scenes ${scenes[0]}${scenes.length > 1 ? `–${scenes[scenes.length - 1]}` : ""}` : ""}
+                    </div>
+                    {scenes.length > 0 && (
+                      <input
+                        value={(t.environments && t.environments[account.id]) || ""}
+                        onChange={(e) => updateEnvironment(t.id, account.id, e.target.value)}
+                        placeholder="Environment to use for these scenes (e.g. ancient library interior)"
+                        style={{ width: "100%", marginBottom: 6 }}
+                      />
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {scenes.length === 0 && <span style={{ fontSize: 11, color: "#5A6E7C" }}>No scenes assigned</span>}
                       {scenes.map((sceneNum) => {
