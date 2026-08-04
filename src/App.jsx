@@ -327,6 +327,7 @@ function Tracker({ user }) {
   const isFullyComplete = (t) => currentPhaseOf(t) === null;
   const inProgressTopics = state.topics.filter((t) => !t.closed);
   const closedTopics = state.topics.filter((t) => t.closed);
+  const uploadedTopics = state.topics.filter((t) => t.uploaded);
   const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
   const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
 
@@ -446,6 +447,28 @@ function Tracker({ user }) {
                   <div style={{ color: "#8FA5B3" }}>{t.name}</div>
                   <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountNames(t.accounts)}</div>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#4C9A5B" }}>UPLOADED</div>
+              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{uploadedTopics.length}</div>
+            </div>
+            {uploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing uploaded to YouTube yet.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {uploadedTopics.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setUploadModalTopicId(t.id)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6, background: "transparent", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#2C4053", width: "100%", textAlign: "left", cursor: "pointer", padding: 0, paddingBottom: 6 }}
+                >
+                  <div style={{ color: "#E9E1CC" }}>{t.name}</div>
+                  <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                    {t.uploadDetails?.publishDate ? t.uploadDetails.publishDate : accountNames(t.accounts)}
+                  </div>
+                </button>
               ))}
             </div>
           </div>
