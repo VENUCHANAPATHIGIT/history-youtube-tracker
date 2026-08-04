@@ -14,9 +14,10 @@ const PHASES = [
   { n: 7, label: "Metadata Package" },
   { n: 8, label: "Video Editing" },
   { n: 9, label: "Upload Status" },
+  { n: 10, label: "YouTube" },
 ];
 
-const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending" });
+const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending", 10: "pending" });
 
 const seedState = () => {
   const now = Date.now();
@@ -28,12 +29,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", account: "a2", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 10, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", account: "a3", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 15, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", account: "a1", phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), scenes: 30, targetMin: 7, actualMin: 7, source: "", startDate: "", completionDate: "", closed: false, notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", account: "a2", phases: mk({ 1: "done", 2: "active" }), scenes: 30, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", account: "a3", phases: mk({ 1: "done", 2: "active" }), scenes: 0, targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
     ],
   };
 };
@@ -58,6 +59,20 @@ function timeAgo(ts) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// Brings older saved topics up to the current shape: single `account` -> `accounts`
+// array, and adds uploaded/uploadDetails if missing. Safe to run on already-migrated data.
+function migrateTopics(topics) {
+  return (topics || []).map((t) => {
+    const next = { ...t };
+    if (!next.accounts) {
+      next.accounts = next.account ? [next.account] : [];
+    }
+    if (next.uploaded === undefined) next.uploaded = false;
+    if (!next.uploadDetails) next.uploadDetails = { link: "", publishDate: "", notes: "" };
+    return next;
+  });
 }
 
 // ---------------- Login screen ----------------
@@ -121,6 +136,7 @@ function Tracker({ user }) {
   const [loaded, setLoaded] = useState(false);
   const [filterAccount, setFilterAccount] = useState("all");
   const [filterTopic, setFilterTopic] = useState("all");
+  const [uploadModalTopicId, setUploadModalTopicId] = useState(null);
   const [saveState, setSaveState] = useState("synced");
   const [syncFlash, setSyncFlash] = useState("");
   const saveTimer = useRef(null);
@@ -132,7 +148,9 @@ function Tracker({ user }) {
     (async () => {
       const snap = await getDoc(docRef.current);
       if (snap.exists()) {
-        setState(snap.data());
+        const data = snap.data();
+        data.topics = migrateTopics(data.topics);
+        setState(data);
       } else {
         const seed = seedState();
         await setDoc(docRef.current, seed);
@@ -146,7 +164,9 @@ function Tracker({ user }) {
           return;
         }
         if (snap2.exists()) {
-          setState(snap2.data());
+          const data2 = snap2.data();
+          data2.topics = migrateTopics(data2.topics);
+          setState(data2);
           setSyncFlash("updated from another device");
           setTimeout(() => setSyncFlash(""), 2500);
         }
@@ -185,7 +205,7 @@ function Tracker({ user }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", account: s.accounts[0]?.id || "a1", phases: emptyPhases(), scenes: "", targetMin: 7, actualMin: "", source: "", startDate: "", completionDate: "", closed: false, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -204,9 +224,28 @@ function Tracker({ user }) {
       if (s.accounts.length <= 1) return s;
       const remaining = s.accounts.filter((a) => a.id !== id);
       const fallback = remaining[0].id;
-      return { ...s, accounts: remaining, topics: s.topics.map((t) => (t.account === id ? { ...t, account: fallback } : t)) };
+      return {
+        ...s,
+        accounts: remaining,
+        topics: s.topics.map((t) => {
+          const next = (t.accounts || []).filter((aid) => aid !== id);
+          return { ...t, accounts: next.length ? next : [fallback] };
+        }),
+      };
     });
     if (filterAccount === id) setFilterAccount("all");
+  };
+
+  const toggleTopicAccount = (topicId, accountId) => {
+    setState((s) => ({
+      ...s,
+      topics: s.topics.map((t) => {
+        if (t.id !== topicId) return t;
+        const has = (t.accounts || []).includes(accountId);
+        const next = has ? t.accounts.filter((id) => id !== accountId) : [...(t.accounts || []), accountId];
+        return { ...t, accounts: next, updated: Date.now() };
+      }),
+    }));
   };
 
   const exportJSON = () => {
@@ -249,10 +288,10 @@ function Tracker({ user }) {
   }
 
   const visibleTopics = state.topics.filter(
-    (t) => (filterAccount === "all" || t.account === filterAccount) && (filterTopic === "all" || t.id === filterTopic)
+    (t) => (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) && (filterTopic === "all" || t.id === filterTopic)
   );
   const accountCounts = state.accounts.reduce((acc, a) => {
-    acc[a.id] = state.topics.filter((t) => t.account === a.id).length;
+    acc[a.id] = state.topics.filter((t) => (t.accounts || []).includes(a.id)).length;
     return acc;
   }, {});
 
@@ -289,6 +328,7 @@ function Tracker({ user }) {
   const inProgressTopics = state.topics.filter((t) => !t.closed);
   const closedTopics = state.topics.filter((t) => t.closed);
   const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
+  const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px" }}>
@@ -386,7 +426,7 @@ function Tracker({ user }) {
                   <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
                     <div style={{ color: "#E9E1CC" }}>{t.name}</div>
                     <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-                      {accountName(t.account)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
+                      {accountNames(t.accounts)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
                     </div>
                   </div>
                 );
@@ -404,7 +444,7 @@ function Tracker({ user }) {
               {closedTopics.map((t) => (
                 <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
                   <div style={{ color: "#8FA5B3" }}>{t.name}</div>
-                  <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountName(t.account)}</div>
+                  <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountNames(t.accounts)}</div>
                 </div>
               ))}
             </div>
@@ -457,13 +497,30 @@ function Tracker({ user }) {
             <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                 <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 220px", border: "none", background: "transparent", padding: "2px 0" }} />
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <select value={t.account} onChange={(e) => updateTopic(t.id, { account: e.target.value })}>
-                    {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button onClick={() => toggleClosed(t.id)} style={{ background: t.closed ? "#2C4053" : "transparent", border: "1px solid #3D5468", color: t.closed ? "#8FA5B3" : "#C9A54B", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>{t.closed ? "Reopen" : "Close"}</button>
                   <button onClick={() => removeTopic(t.id)} style={{ background: "transparent", border: "1px solid #8C5A3C", color: "#C98C6E", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>Remove</button>
                 </div>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {state.accounts.map((a) => {
+                  const active = (t.accounts || []).includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => toggleTopicAccount(t.id, a.id)}
+                      style={{
+                        fontSize: 11, borderRadius: 4, padding: "4px 9px", cursor: "pointer",
+                        background: active ? "#C9A54B" : "transparent",
+                        color: active ? "#14212B" : "#8FA5B3",
+                        border: `1px solid ${active ? "#C9A54B" : "#3D5468"}`,
+                      }}
+                    >
+                      {a.name}
+                    </button>
+                  );
+                })}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
@@ -491,10 +548,27 @@ function Tracker({ user }) {
                 })}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8, marginBottom: 10 }}>
-                <div><div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>SCENES</div><input value={t.scenes} onChange={(e) => updateTopic(t.id, { scenes: e.target.value })} style={{ width: "100%" }} /></div>
-                <div><div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>TARGET (MIN)</div><input value={t.targetMin} onChange={(e) => updateTopic(t.id, { targetMin: e.target.value })} style={{ width: "100%" }} /></div>
-                <div><div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>ACTUAL (MIN)</div><input value={t.actualMin} onChange={(e) => updateTopic(t.id, { actualMin: e.target.value })} style={{ width: "100%" }} /></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C" }}>YOUTUBE STATUS</div>
+                <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
+                  <button
+                    onClick={() => updateTopic(t.id, { uploaded: false })}
+                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: !t.uploaded ? "#2C4053" : "transparent", color: !t.uploaded ? "#E9E1CC" : "#6B7D8C" }}
+                  >
+                    Not Uploaded
+                  </button>
+                  <button
+                    onClick={() => { updateTopic(t.id, { uploaded: true }); setUploadModalTopicId(t.id); }}
+                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.uploaded ? "#4C9A5B" : "transparent", color: t.uploaded ? "#14212B" : "#6B7D8C" }}
+                  >
+                    Uploaded
+                  </button>
+                </div>
+                {t.uploaded && (
+                  <button onClick={() => setUploadModalTopicId(t.id)} style={{ fontSize: 11, background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "5px 9px" }}>
+                    View details
+                  </button>
+                )}
               </div>
 
               <textarea value={t.notes} onChange={(e) => updateTopic(t.id, { notes: e.target.value })} placeholder="Notes — blockers, decisions pending, rate limits hit…" style={{ width: "100%" }} />
@@ -534,6 +608,60 @@ function Tracker({ user }) {
           ))}
         </div>
       </div>
+
+      {uploadModalTopicId && (() => {
+        const modalTopic = state.topics.find((tt) => tt.id === uploadModalTopicId);
+        if (!modalTopic) return null;
+        const details = modalTopic.uploadDetails || { link: "", publishDate: "", notes: "" };
+        return (
+          <div
+            onClick={() => setUploadModalTopicId(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 22, width: "100%", maxWidth: 440 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>YOUTUBE UPLOAD DETAILS</div>
+                <button onClick={() => setUploadModalTopicId(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
+              </div>
+              <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 18, fontWeight: 600, marginBottom: 16 }}>{modalTopic.name}</div>
+
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>YOUTUBE LINK</div>
+                <input
+                  value={details.link}
+                  onChange={(e) => updateTopic(modalTopic.id, { uploadDetails: { ...details, link: e.target.value } })}
+                  placeholder="https://youtube.com/watch?v=…"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>PUBLISH DATE</div>
+                <input
+                  type="date"
+                  value={details.publishDate}
+                  onChange={(e) => updateTopic(modalTopic.id, { uploadDetails: { ...details, publishDate: e.target.value } })}
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>NOTES</div>
+                <textarea
+                  value={details.notes}
+                  onChange={(e) => updateTopic(modalTopic.id, { uploadDetails: { ...details, notes: e.target.value } })}
+                  placeholder="Performance notes, thumbnail version, anything worth remembering…"
+                  style={{ width: "100%", minHeight: 70 }}
+                />
+              </div>
+              <button
+                onClick={() => setUploadModalTopicId(null)}
+                style={{ width: "100%", background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: 10, fontWeight: 600, fontSize: 13 }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
