@@ -29,12 +29,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
     ],
   };
 };
@@ -71,6 +71,7 @@ function migrateTopics(topics) {
     }
     if (next.uploaded === undefined) next.uploaded = false;
     if (!next.uploadDetails) next.uploadDetails = { link: "", publishDate: "", notes: "" };
+    if (next.claudeChat === undefined) next.claudeChat = "";
     return next;
   });
 }
@@ -205,7 +206,7 @@ function Tracker({ user }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -624,6 +625,16 @@ function Tracker({ user }) {
                     style={{ width: "100%" }}
                   />
                 </div>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>CLAUDE CHAT USED FOR PROMPTS</div>
+                <input
+                  value={t.claudeChat || ""}
+                  onChange={(e) => updateTopic(t.id, { claudeChat: e.target.value })}
+                  placeholder="Link to the Claude conversation used to generate this topic's prompts"
+                  style={{ width: "100%" }}
+                />
               </div>
 
               <div style={{ fontSize: 10, color: "#5A6E7C", marginTop: 8, textAlign: "right" }}>updated {timeAgo(t.updated)}</div>
