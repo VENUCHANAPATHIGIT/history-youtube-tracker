@@ -121,7 +121,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
   };
 
   // Topics not yet uploaded — candidates for the "add to this day" picker.
-  const notUploadedTopics = (topics || []).filter((t) => !t.uploaded);
+  const notUploadedTopics = (topics || []).filter((t) => !t.uploaded && t.completionDate);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -261,7 +261,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            {notUploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No unuploaded topics left on the Ledger — everything's already posted.</div>}
+            {notUploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics with a completion date set yet — add one on the Production Ledger first.</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {notUploadedTopics.map((t) => (
                 <button
