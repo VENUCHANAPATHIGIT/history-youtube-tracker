@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import { signOut } from "firebase/auth";
 
@@ -25,13 +25,13 @@ function addDays(date, n) {
 }
 
 // Build a flat list of schedule entries from topics: one entry per topic that has
-// either an actual publish date (posted) or a completion date (planned target).
+// either an actual uploaded date (posted) or a completion date (planned target).
 function buildEntries(topics) {
   const entries = [];
   (topics || []).forEach((t) => {
-    const publishDate = t.uploadDetails?.publishDate;
-    if (t.uploaded && publishDate) {
-      entries.push({ topicId: t.id, name: t.name, date: publishDate, status: "posted", link: t.uploadDetails?.link || "" });
+    const uploadedDate = t.uploadedDate || t.uploadDetails?.publishDate;
+    if (t.uploaded && uploadedDate) {
+      entries.push({ topicId: t.id, name: t.name, date: uploadedDate, status: "posted" });
     } else if (!t.uploaded && t.completionDate) {
       entries.push({ topicId: t.id, name: t.name, date: t.completionDate, status: "planned" });
     }
@@ -43,6 +43,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
   const [topics, setTopics] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [pickerDate, setPickerDate] = useState(null); // iso date string when the add-topic picker is open
+  const [saveState, setSaveState] = useState("synced");
+  const suppressNextSnapshot = useRef(false);
   const docRef = useRef(doc(db, "users", user.uid, "tracker", "main"));
 
   useEffect(() => {
@@ -52,12 +55,27 @@ export default function SchedulePage({ user, onOpenTopic }) {
       if (snap.exists()) setTopics(snap.data().topics || []);
       setLoaded(true);
       unsub = onSnapshot(docRef.current, (snap2) => {
+        if (suppressNextSnapshot.current) {
+          suppressNextSnapshot.current = false;
+          return;
+        }
         if (snap2.exists()) setTopics(snap2.data().topics || []);
       });
     })();
     return () => unsub && unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Writes a patch to one topic and pushes the full topics array back to Firestore.
+  const patchTopic = async (topicId, patch) => {
+    setTopics((prev) => {
+      const next = prev.map((t) => (t.id === topicId ? { ...t, ...patch, updated: Date.now() } : t));
+      setSaveState("saving…");
+      suppressNextSnapshot.current = true;
+      setDoc(docRef.current, { topics: next }, { merge: true }).then(() => setSaveState("synced"));
+      return next;
+    });
+  };
 
   if (!loaded) {
     return (
@@ -93,6 +111,23 @@ export default function SchedulePage({ user, onOpenTopic }) {
     if (onOpenTopic) onOpenTopic(topicId);
   };
 
+  // Toggle a scheduled entry between planned (yellow) and posted (green).
+  const toggleStatus = (entry) => {
+    if (entry.status === "planned") {
+      patchTopic(entry.topicId, { uploaded: true, uploadedDate: entry.date });
+    } else {
+      patchTopic(entry.topicId, { uploaded: false, completionDate: entry.date });
+    }
+  };
+
+  // Topics not yet uploaded — candidates for the "add to this day" picker.
+  const notUploadedTopics = (topics || []).filter((t) => !t.uploaded);
+
+  const assignTopicToDay = (topicId, iso) => {
+    patchTopic(topicId, { completionDate: iso });
+    setPickerDate(null);
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px" }}>
       <style>{`
@@ -106,13 +141,16 @@ export default function SchedulePage({ user, onOpenTopic }) {
             <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>HISTORY YOUTUBE CONTENT</div>
             <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 30, fontWeight: 600, margin: 0 }}>Upload Schedule</h1>
           </div>
-          <button onClick={() => signOut(auth)} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Sign out</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 11, color: saveState === "synced" ? "#4C9A5B" : "#6B7D8C" }}>{saveState}</div>
+            <button onClick={() => signOut(auth)} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Sign out</button>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4C9A5B", display: "inline-block" }} /> posted</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> planned to upload</span>
-          <span style={{ color: "#5A6E7C" }}>— click a topic to open it on the Production Ledger</span>
+          <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, + to add one</span>
         </div>
 
         {/* Weekly calendar */}
@@ -138,25 +176,47 @@ export default function SchedulePage({ user, onOpenTopic }) {
                   </div>
                   <div
                     style={{
-                      minHeight: 130, border: `1px solid ${isToday ? "#C9A54B" : "#2C4053"}`, borderRadius: 6,
+                      minHeight: 140, border: `1px solid ${isToday ? "#C9A54B" : "#2C4053"}`, borderRadius: 6,
                       background: "#14212B", padding: 5, display: "flex", flexDirection: "column", gap: 4,
                     }}
                   >
                     {dayEntries.map((e) => (
-                      <button
+                      <div
                         key={e.topicId}
-                        onClick={() => openTopic(e.topicId)}
-                        title={`${e.name} — open on Production Ledger`}
                         style={{
-                          fontSize: 10, borderRadius: 4, padding: "4px 5px", fontWeight: 600, lineHeight: 1.3,
-                          textAlign: "left", border: "none", cursor: "pointer",
+                          display: "flex", alignItems: "center", gap: 4, borderRadius: 4, padding: "3px 4px",
                           background: e.status === "posted" ? "#4C9A5B" : "#D9A73B",
-                          color: e.status === "posted" ? "#0d2116" : "#3a2a05",
                         }}
                       >
-                        {e.name}
-                      </button>
+                        <button
+                          onClick={() => openTopic(e.topicId)}
+                          title={`${e.name} — open on Production Ledger`}
+                          style={{
+                            flex: 1, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
+                            border: "none", background: "transparent", cursor: "pointer", padding: 0,
+                            color: e.status === "posted" ? "#0d2116" : "#3a2a05",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}
+                        >
+                          {e.name}
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(e)}
+                          title={e.status === "posted" ? "Mark as planned (not yet uploaded)" : "Mark as posted (uploaded today)"}
+                          style={{
+                            width: 12, height: 12, borderRadius: "50%", flexShrink: 0, padding: 0, cursor: "pointer",
+                            border: `2px solid ${e.status === "posted" ? "#0d2116" : "#3a2a05"}`,
+                            background: "transparent",
+                          }}
+                        />
+                      </div>
                     ))}
+                    <button
+                      onClick={() => setPickerDate(iso)}
+                      style={{ marginTop: "auto", fontSize: 10, color: "#6B7D8C", background: "transparent", border: "1px dashed #33475A", borderRadius: 4, padding: "3px 0" }}
+                    >
+                      + add
+                    </button>
                   </div>
                 </div>
               );
@@ -170,24 +230,53 @@ export default function SchedulePage({ user, onOpenTopic }) {
           {weekEntries.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing scheduled or posted this week.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {weekEntries.map((e) => (
-              <button
-                key={e.topicId}
-                onClick={() => openTopic(e.topicId)}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, borderBottom: "1px solid #2C4053", paddingBottom: 8, background: "transparent", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#2C4053", width: "100%", textAlign: "left", cursor: "pointer", padding: 0, paddingBottom: 8 }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div key={e.topicId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, borderBottom: "1px solid #2C4053", paddingBottom: 8 }}>
+                <button onClick={() => openTopic(e.topicId)} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "#E9E1CC" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", flexShrink: 0 }} />
-                  <span style={{ color: "#E9E1CC" }}>{e.name}</span>
-                </div>
+                  <span>{e.name}</span>
+                </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 11, color: e.status === "posted" ? "#4C9A5B" : "#D9A73B" }}>{e.status === "posted" ? "Posted" : "Planned"}</span>
+                  <button
+                    onClick={() => toggleStatus(e)}
+                    style={{ fontSize: 11, background: "transparent", border: `1px solid ${e.status === "posted" ? "#4C9A5B" : "#D9A73B"}`, color: e.status === "posted" ? "#4C9A5B" : "#D9A73B", borderRadius: 4, padding: "2px 8px" }}
+                  >
+                    {e.status === "posted" ? "Posted" : "Planned"}
+                  </button>
                   <span style={{ fontSize: 12, color: "#8FA5B3" }}>{e.date}</span>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Add-topic picker modal */}
+      {pickerDate && (
+        <div
+          onClick={() => setPickerDate(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 20, width: "100%", maxWidth: 380, maxHeight: "70vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
+              <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
+            </div>
+            {notUploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No unuploaded topics left on the Ledger — everything's already posted.</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {notUploadedTopics.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => assignTopicToDay(t.id, pickerDate)}
+                  style={{ textAlign: "left", background: "#14212B", border: "1px solid #33475A", borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#E9E1CC" }}
+                >
+                  {t.name}
+                  {t.completionDate && <span style={{ fontSize: 11, color: "#6B7D8C", marginLeft: 6 }}>(currently planned {t.completionDate})</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

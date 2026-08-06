@@ -30,12 +30,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
     ],
   };
 };
@@ -73,6 +73,7 @@ function migrateTopics(topics) {
     if (next.uploaded === undefined) next.uploaded = false;
     if (!next.uploadDetails) next.uploadDetails = { link: "", publishDate: "", notes: "" };
     if (next.claudeChat === undefined) next.claudeChat = "";
+    if (next.uploadedDate === undefined) next.uploadedDate = "";
     return next;
   });
 }
@@ -216,7 +217,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -607,7 +608,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
               <textarea value={t.notes} onChange={(e) => updateTopic(t.id, { notes: e.target.value })} placeholder="Notes — blockers, decisions pending, rate limits hit…" style={{ width: "100%" }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 150px", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 130px 130px 130px", gap: 8, marginTop: 10 }}>
                 <div>
                   <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>SOURCE</div>
                   <textarea
@@ -632,6 +633,15 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                     type="date"
                     value={t.completionDate || ""}
                     onChange={(e) => updateTopic(t.id, { completionDate: e.target.value })}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }} title="Set automatically when you mark this topic green on the Upload Schedule page — editable manually too">UPLOADED DATE</div>
+                  <input
+                    type="date"
+                    value={t.uploadedDate || ""}
+                    onChange={(e) => updateTopic(t.id, { uploadedDate: e.target.value })}
                     style={{ width: "100%" }}
                   />
                 </div>
@@ -683,7 +693,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 <input
                   type="date"
                   value={details.publishDate}
-                  onChange={(e) => updateTopic(modalTopic.id, { uploadDetails: { ...details, publishDate: e.target.value } })}
+                  onChange={(e) => updateTopic(modalTopic.id, { uploadDetails: { ...details, publishDate: e.target.value }, uploadedDate: e.target.value })}
                   style={{ width: "100%" }}
                 />
               </div>
