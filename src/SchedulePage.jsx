@@ -120,8 +120,14 @@ export default function SchedulePage({ user, onOpenTopic }) {
     }
   };
 
-  // Topics not yet uploaded — candidates for the "add to this day" picker.
-  const notUploadedTopics = (topics || []).filter((t) => !t.uploaded && t.completionDate);
+  // Fully unschedules a topic — clears whichever date put it on the calendar.
+  const removeFromSchedule = (topicId) => {
+    patchTopic(topicId, { completionDate: "", uploaded: false, uploadedDate: "" });
+  };
+
+  // Only topics you've marked Closed on the Ledger (and not already uploaded) are
+  // ready to be scheduled — candidates for the "add to this day" picker.
+  const schedulableTopics = (topics || []).filter((t) => t.closed && !t.uploaded);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -150,7 +156,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4C9A5B", display: "inline-block" }} /> posted</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> planned to upload</span>
-          <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, + to add one</span>
+          <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, × to remove, + to add one</span>
         </div>
 
         {/* Weekly calendar */}
@@ -209,6 +215,17 @@ export default function SchedulePage({ user, onOpenTopic }) {
                             background: "transparent",
                           }}
                         />
+                        <button
+                          onClick={() => removeFromSchedule(e.topicId)}
+                          title="Remove from schedule"
+                          style={{
+                            fontSize: 10, lineHeight: 1, flexShrink: 0, padding: "0 2px", cursor: "pointer",
+                            border: "none", background: "transparent",
+                            color: e.status === "posted" ? "#0d2116" : "#3a2a05",
+                          }}
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
                     <button
@@ -243,6 +260,13 @@ export default function SchedulePage({ user, onOpenTopic }) {
                     {e.status === "posted" ? "Posted" : "Planned"}
                   </button>
                   <span style={{ fontSize: 12, color: "#8FA5B3" }}>{e.date}</span>
+                  <button
+                    onClick={() => removeFromSchedule(e.topicId)}
+                    title="Remove from schedule"
+                    style={{ fontSize: 13, background: "transparent", border: "none", color: "#8C5A3C", cursor: "pointer", padding: "0 2px" }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
             ))}
@@ -261,9 +285,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            {notUploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics with a completion date set yet — add one on the Production Ledger first.</div>}
+            {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No closed topics ready to schedule yet — close a topic on the Production Ledger first.</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {notUploadedTopics.map((t) => (
+              {schedulableTopics.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => assignTopicToDay(t.id, pickerDate)}
