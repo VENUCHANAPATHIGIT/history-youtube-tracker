@@ -6,5 +6,5 @@ import react from "@vitejs/plugin-react";
 // without a custom domain, change base to "/repo-name/".
 export default defineConfig({
   plugins: [react()],
-  base: "/",
+  base: "/history-youtube-tracker/",
 });
