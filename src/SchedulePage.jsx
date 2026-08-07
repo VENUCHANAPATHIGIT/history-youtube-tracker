@@ -120,24 +120,12 @@ export default function SchedulePage({ user, onOpenTopic }) {
     }
   };
 
-  // Candidates for the "add to this day" picker: closed on the Production Ledger
-  // (finished production) and not yet uploaded. Whether or not they already have
-  // a completion date set doesn't matter — picking a day here (re)assigns it.
-  const closedTopics = (topics || []).filter((t) => t.closed && !t.uploaded);
+  // Topics not yet uploaded — candidates for the "add to this day" picker.
+  const notUploadedTopics = (topics || []).filter((t) => !t.uploaded && t.completionDate);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
     setPickerDate(null);
-  };
-
-  // Clears a topic's schedule assignment entirely — it disappears from the
-  // calendar/list but stays untouched on the Production Ledger.
-  const removeFromSchedule = (entry) => {
-    if (entry.status === "posted") {
-      patchTopic(entry.topicId, { uploaded: false, uploadedDate: "" });
-    } else {
-      patchTopic(entry.topicId, { completionDate: "" });
-    }
   };
 
   return (
@@ -162,7 +150,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4C9A5B", display: "inline-block" }} /> posted</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> planned to upload</span>
-          <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, × to remove from schedule, + to add one</span>
+          <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, + to add one</span>
         </div>
 
         {/* Weekly calendar */}
@@ -221,17 +209,6 @@ export default function SchedulePage({ user, onOpenTopic }) {
                             background: "transparent",
                           }}
                         />
-                        <button
-                          onClick={() => removeFromSchedule(e)}
-                          title="Remove from schedule"
-                          style={{
-                            width: 12, height: 12, lineHeight: "10px", flexShrink: 0, padding: 0, cursor: "pointer",
-                            border: "none", background: "transparent", fontSize: 11, fontWeight: 700,
-                            color: e.status === "posted" ? "#0d2116" : "#3a2a05",
-                          }}
-                        >
-                          ×
-                        </button>
                       </div>
                     ))}
                     <button
@@ -266,13 +243,6 @@ export default function SchedulePage({ user, onOpenTopic }) {
                     {e.status === "posted" ? "Posted" : "Planned"}
                   </button>
                   <span style={{ fontSize: 12, color: "#8FA5B3" }}>{e.date}</span>
-                  <button
-                    onClick={() => removeFromSchedule(e)}
-                    title="Remove from schedule"
-                    style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "1px 7px", fontSize: 12, lineHeight: "16px" }}
-                  >
-                    ×
-                  </button>
                 </div>
               </div>
             ))}
@@ -291,9 +261,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            {closedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No closed topics waiting to be scheduled — close a finished topic on the Production Ledger first.</div>}
+            {notUploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics with a completion date set yet — add one on the Production Ledger first.</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {closedTopics.map((t) => (
+              {notUploadedTopics.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => assignTopicToDay(t.id, pickerDate)}
