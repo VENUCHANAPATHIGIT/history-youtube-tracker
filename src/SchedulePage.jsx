@@ -125,9 +125,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
     patchTopic(topicId, { completionDate: "", uploaded: false, uploadedDate: "" });
   };
 
-  // Only topics you've marked Closed on the Ledger (and not already uploaded) are
-  // ready to be scheduled — candidates for the "add to this day" picker.
-  const schedulableTopics = (topics || []).filter((t) => t.closed && !t.uploaded);
+  // Only topics you've marked "Topic Completed: Yes" on the Ledger (and not
+  // already uploaded) are ready to be scheduled — candidates for the "add to this day" picker.
+  const schedulableTopics = (topics || []).filter((t) => t.completed && !t.uploaded);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -285,7 +285,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No closed topics ready to schedule yet — close a topic on the Production Ledger first.</div>}
+            {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No completed topics ready to schedule yet — set "Topic Completed" to Yes on the Production Ledger first.</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {schedulableTopics.map((t) => (
                 <button
