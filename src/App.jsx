@@ -140,6 +140,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [loaded, setLoaded] = useState(false);
   const [filterAccount, setFilterAccount] = useState("all");
   const [filterTopic, setFilterTopic] = useState("all");
+  const [filterCompleted, setFilterCompleted] = useState("all");
 
   useEffect(() => {
     if (focusTopicId) {
@@ -301,7 +302,10 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   }
 
   const visibleTopics = state.topics.filter(
-    (t) => (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) && (filterTopic === "all" || t.id === filterTopic)
+    (t) =>
+      (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) &&
+      (filterTopic === "all" || t.id === filterTopic) &&
+      (filterCompleted === "all" || (filterCompleted === "notCompleted" ? !t.completed : t.completed))
   );
   const accountCounts = state.accounts.reduce((acc, a) => {
     acc[a.id] = state.topics.filter((t) => (t.accounts || []).includes(a.id)).length;
@@ -510,6 +514,11 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
             <select value={filterTopic} onChange={(e) => setFilterTopic(e.target.value)}>
               <option value="all">All topics</option>
               {state.topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <select value={filterCompleted} onChange={(e) => setFilterCompleted(e.target.value)}>
+              <option value="all">Topic Completed: All</option>
+              <option value="notCompleted">Topic Completed: No</option>
+              <option value="completed">Topic Completed: Yes</option>
             </select>
           </div>
           <button onClick={addTopic} style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "8px 14px", fontWeight: 600, fontSize: 13 }}>+ New Topic</button>
