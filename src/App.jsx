@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import FlowPlanner from "./FlowPlanner.jsx";
 import SchedulePage from "./SchedulePage.jsx";
+import logoUrl from "./assets/logo.png";
 
 const PHASES = [
   { n: 1, label: "Topic Generator" },
@@ -141,6 +142,9 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [filterAccount, setFilterAccount] = useState("all");
   const [filterTopic, setFilterTopic] = useState("all");
   const [filterCompleted, setFilterCompleted] = useState("all");
+  const [filterUploaded, setFilterUploaded] = useState("all");
+  const [sectionOpen, setSectionOpen] = useState({ inProgress: true, closed: true, uploaded: true });
+  const toggleSection = (key) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
   useEffect(() => {
     if (focusTopicId) {
@@ -211,7 +215,19 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
   const togglePhase = (topic, n) => {
     const cur = topic.phases[n] || "pending";
-    updateTopic(topic.id, { phases: { ...topic.phases, [n]: cyclePhase(cur) } });
+    const next = cyclePhase(cur);
+    const nextPhases = { ...topic.phases, [n]: next };
+    // Marking a phase done implies every earlier phase is also done —
+    // cascade forward-completed phases backward, leaving skipped ones as skipped.
+    if (next === "done") {
+      PHASES.forEach((p) => {
+        if (p.n < n) {
+          const earlier = nextPhases[p.n] || "pending";
+          if (earlier !== "skipped" && earlier !== "done") nextPhases[p.n] = "done";
+        }
+      });
+    }
+    updateTopic(topic.id, { phases: nextPhases });
   };
 
   const addTopic = () => {
@@ -305,7 +321,8 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     (t) =>
       (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) &&
       (filterTopic === "all" || t.id === filterTopic) &&
-      (filterCompleted === "all" || (filterCompleted === "notCompleted" ? !t.completed : t.completed))
+      (filterCompleted === "all" || (filterCompleted === "notCompleted" ? !t.completed : t.completed)) &&
+      (filterUploaded === "all" || (filterUploaded === "notUploaded" ? !t.uploaded : t.uploaded))
   );
   const accountCounts = state.accounts.reduce((acc, a) => {
     acc[a.id] = state.topics.filter((t) => (t.accounts || []).includes(a.id)).length;
@@ -349,7 +366,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px 220px" }}>
       <style>{`
         * { box-sizing: border-box; }
         input, textarea, select { font-family:'Inter',sans-serif; background:#14212B; border:1px solid #33475A; color:#E9E1CC; border-radius:4px; padding:6px 8px; font-size:13px; outline:none; }
@@ -432,62 +449,83 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 24 }}>
           <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#D9A73B" }}>IN PROGRESS</div>
+            <button
+              onClick={() => toggleSection("inProgress")}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.inProgress ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#D9A73B" }}>{sectionOpen.inProgress ? "▾" : "▸"} IN PROGRESS</div>
               <div style={{ fontSize: 11, color: "#6B7D8C" }}>{inProgressTopics.length}</div>
-            </div>
-            {inProgressTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing mid-flight right now.</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {inProgressTopics.map((t) => {
-                const cp = currentPhaseOf(t);
-                return (
-                  <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
-                    <div style={{ color: "#E9E1CC" }}>{t.name}</div>
-                    <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-                      {accountNames(t.accounts)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#8FA5B3" }}>CLOSED</div>
-              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{closedTopics.length}</div>
-            </div>
-            {closedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics closed yet.</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {closedTopics.map((t) => (
-                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
-                  <div style={{ color: "#8FA5B3" }}>{t.name}</div>
-                  <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountNames(t.accounts)}</div>
+            </button>
+            {sectionOpen.inProgress && (
+              <>
+                {inProgressTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing mid-flight right now.</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {inProgressTopics.map((t) => {
+                    const cp = currentPhaseOf(t);
+                    return (
+                      <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
+                        <div style={{ color: "#E9E1CC" }}>{t.name}</div>
+                        <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                          {accountNames(t.accounts)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
 
           <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#4C9A5B" }}>UPLOADED</div>
+            <button
+              onClick={() => toggleSection("closed")}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.closed ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#8FA5B3" }}>{sectionOpen.closed ? "▾" : "▸"} CLOSED</div>
+              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{closedTopics.length}</div>
+            </button>
+            {sectionOpen.closed && (
+              <>
+                {closedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics closed yet.</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {closedTopics.map((t) => (
+                    <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
+                      <div style={{ color: "#8FA5B3" }}>{t.name}</div>
+                      <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountNames(t.accounts)}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
+            <button
+              onClick={() => toggleSection("uploaded")}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.uploaded ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#4C9A5B" }}>{sectionOpen.uploaded ? "▾" : "▸"} UPLOADED</div>
               <div style={{ fontSize: 11, color: "#6B7D8C" }}>{uploadedTopics.length}</div>
-            </div>
-            {uploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing uploaded to YouTube yet.</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {uploadedTopics.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setUploadModalTopicId(t.id)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, background: "transparent", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#2C4053", width: "100%", textAlign: "left", cursor: "pointer", padding: 0, paddingBottom: 6 }}
-                >
-                  <div style={{ color: "#E9E1CC" }}>{t.name}</div>
-                  <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-                    {t.uploadDetails?.publishDate ? t.uploadDetails.publishDate : accountNames(t.accounts)}
-                  </div>
-                </button>
-              ))}
-            </div>
+            </button>
+            {sectionOpen.uploaded && (
+              <>
+                {uploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing uploaded to YouTube yet.</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {uploadedTopics.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setUploadModalTopicId(t.id)}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, background: "transparent", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#2C4053", width: "100%", textAlign: "left", cursor: "pointer", padding: 0, paddingBottom: 6 }}
+                    >
+                      <div style={{ color: "#E9E1CC" }}>{t.name}</div>
+                      <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
+                        {t.uploadDetails?.publishDate ? t.uploadDetails.publishDate : accountNames(t.accounts)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -520,11 +558,16 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
               <option value="notCompleted">Topic Completed: No</option>
               <option value="completed">Topic Completed: Yes</option>
             </select>
+            <select value={filterUploaded} onChange={(e) => setFilterUploaded(e.target.value)}>
+              <option value="all">YouTube Status: All</option>
+              <option value="notUploaded">YouTube Status: Not Uploaded</option>
+              <option value="uploaded">YouTube Status: Uploaded</option>
+            </select>
           </div>
           <button onClick={addTopic} style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "8px 14px", fontWeight: 600, fontSize: 13 }}>+ New Topic</button>
         </div>
 
-        <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 18, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4C9A5B", display: "inline-block" }} /> done</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> in progress</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", border: "2px solid #33475A", display: "inline-block" }} /> not started</span>
@@ -532,8 +575,22 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           <span style={{ color: "#5A6E7C" }}>— tap a dot to cycle status</span>
         </div>
 
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11, color: "#8FA5B3", marginBottom: 18 }}>
-          {PHASES.map((p) => <span key={p.n}>{p.n}. {p.label}</span>)}
+        <div
+          style={{
+            position: "fixed", top: 90, left: 16, width: 186, zIndex: 30,
+            background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14,
+            maxHeight: "calc(100vh - 110px)", overflowY: "auto",
+          }}
+        >
+          <div style={{ fontSize: 10, letterSpacing: 1, color: "#5C8A80", marginBottom: 8 }}>PIPELINE PHASES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, color: "#B9C3CB" }}>
+            {PHASES.map((p) => (
+              <div key={p.n} style={{ display: "flex", gap: 6 }}>
+                <span style={{ color: "#6B7D8C", flexShrink: 0 }}>{p.n}.</span>
+                <span>{p.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -767,6 +824,11 @@ function NavShell({ page, onNavigate }) {
   ];
   return (
     <>
+      <img
+        src={logoUrl}
+        alt="Charitrika"
+        style={{ position: "fixed", top: 12, right: 16, zIndex: 50, width: 44, height: 44, borderRadius: "50%" }}
+      />
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Menu"
