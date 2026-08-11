@@ -5,7 +5,6 @@ import { signOut } from "firebase/auth";
 
 const CREDITS_PER_ACCOUNT = 50; // Google Flow's per-account credit allowance
 const CREDITS_PER_VIDEO = 10;
-const SCENES_PER_ACCOUNT = CREDITS_PER_ACCOUNT / CREDITS_PER_VIDEO; // 5
 
 function seedFlowState() {
   return {
@@ -17,23 +16,33 @@ function seedFlowState() {
       { id: "fa5", name: "Flow Account 5" },
     ],
     topics: [
-      { id: "ft1", name: "New Topic", script: "", numScenes: 20, selectedAccounts: [], completedScenes: {}, environments: {}, updated: Date.now() },
+      { id: "ft1", name: "New Topic", script: "", numScenes: 20, selectedAccounts: [], sceneAssignments: {}, completedScenes: {}, environments: {}, updated: Date.now() },
     ],
   };
 }
 
-// Fills each selected account up to its scene capacity before moving to the next —
-// not an even split. Matches how credits actually get used up one account at a time.
-function allocateSequential(numScenes, accountObjs) {
-  let remaining = Math.max(0, parseInt(numScenes, 10) || 0);
-  let cursor = 1;
-  return accountObjs.map((acc) => {
-    const take = Math.min(SCENES_PER_ACCOUNT, remaining);
-    const scenes = [];
-    for (let s = 0; s < take; s++) scenes.push(cursor++);
-    remaining -= take;
-    return { account: acc, scenes };
+// Parses free text like "1-5" or "3,7,9,12,15" or "1-3, 8, 10-11" into a flat
+// list of scene labels (strings, in the order the person typed them).
+function parseSceneInput(text) {
+  if (!text) return [];
+  const tokens = [];
+  text.split(",").forEach((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return;
+    const rangeMatch = trimmed.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      let a = parseInt(rangeMatch[1], 10);
+      let b = parseInt(rangeMatch[2], 10);
+      if (a <= b) {
+        for (let n = a; n <= b; n++) tokens.push(String(n));
+      } else {
+        for (let n = a; n >= b; n--) tokens.push(String(n));
+      }
+    } else {
+      tokens.push(trimmed);
+    }
   });
+  return tokens;
 }
 
 export default function FlowPlanner({ user }) {
@@ -53,11 +62,12 @@ export default function FlowPlanner({ user }) {
       if (snap.exists()) {
         const data = snap.data();
         if (!data.topics) {
-          data.topics = [{ id: "ft1", name: "Migrated Script", script: data.script || "", numScenes: data.numScenes || 20, selectedAccounts: [], completedScenes: data.completedScenes || {}, environments: {}, updated: Date.now() }];
+          data.topics = [{ id: "ft1", name: "Migrated Script", script: data.script || "", numScenes: data.numScenes || 20, selectedAccounts: [], sceneAssignments: {}, completedScenes: data.completedScenes || {}, environments: {}, updated: Date.now() }];
         } else {
           data.topics = data.topics.map((t) => ({
             ...t,
             selectedAccounts: t.selectedAccounts || [],
+            sceneAssignments: t.sceneAssignments || {},
             environments: t.environments || {},
           }));
         }
@@ -108,9 +118,7 @@ export default function FlowPlanner({ user }) {
     setState((s) => ({ ...s, accounts: s.accounts.map((a) => (a.id === id ? { ...a, name } : a)) }));
   };
   const addGlobalAccount = () => {
-    const id = "fa" + Date.now();
-    setState((s) => ({ ...s, accounts: [...s.accounts, { id, name: `Flow Account ${s.accounts.length + 1}` }] }));
-    return id;
+    setState((s) => ({ ...s, accounts: [...s.accounts, { id: "fa" + Date.now(), name: `Flow Account ${s.accounts.length + 1}` }] }));
   };
   const removeAccount = (id) => {
     setState((s) => {
@@ -126,11 +134,11 @@ export default function FlowPlanner({ user }) {
   const updateTopic = (id, patch) => {
     setState((s) => ({ ...s, topics: s.topics.map((t) => (t.id === id ? { ...t, ...patch, updated: Date.now() } : t)) }));
   };
-  const toggleScene = (topicId, sceneNum) => {
+  const toggleScene = (topicId, key) => {
     setState((s) => ({
       ...s,
       topics: s.topics.map((t) =>
-        t.id === topicId ? { ...t, completedScenes: { ...t.completedScenes, [sceneNum]: !t.completedScenes[sceneNum] }, updated: Date.now() } : t
+        t.id === topicId ? { ...t, completedScenes: { ...t.completedScenes, [key]: !t.completedScenes[key] }, updated: Date.now() } : t
       ),
     }));
   };
@@ -142,18 +150,25 @@ export default function FlowPlanner({ user }) {
       ),
     }));
   };
+  const updateSceneAssignment = (topicId, accountId, value) => {
+    setState((s) => ({
+      ...s,
+      topics: s.topics.map((t) =>
+        t.id === topicId ? { ...t, sceneAssignments: { ...t.sceneAssignments, [accountId]: value }, updated: Date.now() } : t
+      ),
+    }));
+  };
   const addTopic = () => {
     const id = "ft" + Date.now();
     setState((s) => ({
       ...s,
-      topics: [{ id, name: "New Topic", script: "", numScenes: 20, selectedAccounts: [], completedScenes: {}, environments: {}, updated: Date.now() }, ...s.topics],
+      topics: [{ id, name: "New Topic", script: "", numScenes: 20, selectedAccounts: [], sceneAssignments: {}, completedScenes: {}, environments: {}, updated: Date.now() }, ...s.topics],
     }));
   };
   const removeTopic = (id) => {
     setState((s) => ({ ...s, topics: s.topics.filter((t) => t.id !== id) }));
   };
 
-  // Add an existing global account to this topic's working set.
   const addAccountToTopic = (topicId, accountId) => {
     setState((s) => ({
       ...s,
@@ -165,7 +180,6 @@ export default function FlowPlanner({ user }) {
     }));
     setAddingAccountFor(null);
   };
-  // Create a brand-new Flow account and immediately attach it to this topic.
   const addNewAccountToTopic = (topicId) => {
     const newId = "fa" + Date.now();
     setState((s) => ({
@@ -231,14 +245,17 @@ export default function FlowPlanner({ user }) {
           {state.topics.map((t) => {
             const selectedIds = t.selectedAccounts || [];
             const selectedAccountObjs = selectedIds.map((id) => state.accounts.find((a) => a.id === id)).filter(Boolean);
-            const allocation = allocateSequential(t.numScenes, selectedAccountObjs);
+            const sceneAssignments = t.sceneAssignments || {};
+            const perAccount = selectedAccountObjs.map((account) => ({
+              account,
+              scenes: parseSceneInput(sceneAssignments[account.id] || ""),
+            }));
             const totalScenes = Math.max(0, parseInt(t.numScenes, 10) || 0);
             const doneCount = Object.values(t.completedScenes || {}).filter(Boolean).length;
             const totalNeeded = totalScenes * CREDITS_PER_VIDEO;
             const totalAdded = selectedAccountObjs.length * CREDITS_PER_ACCOUNT;
-            const scenesCovered = allocation.reduce((sum, a) => sum + a.scenes.length, 0);
-            const scenesShort = totalScenes - scenesCovered;
-            const balance = totalAdded - totalNeeded; // positive = leftover credits, negative = still short
+            const scenesCovered = perAccount.reduce((sum, a) => sum + a.scenes.length, 0);
+            const balance = totalAdded - totalNeeded;
             const unselectedAccounts = state.accounts.filter((a) => !selectedIds.includes(a.id));
 
             return (
@@ -261,7 +278,7 @@ export default function FlowPlanner({ user }) {
                 />
 
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>NUMBER OF SCENES</div>
+                  <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>NUMBER OF SCENES IN SCRIPT</div>
                   <input
                     type="number"
                     min="0"
@@ -271,7 +288,6 @@ export default function FlowPlanner({ user }) {
                   />
                 </div>
 
-                {/* Running credit dashboard */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-end", marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 18, fontWeight: 600 }}>{totalNeeded}</div>
@@ -286,40 +302,50 @@ export default function FlowPlanner({ user }) {
                     <div style={{ fontSize: 9, color: "#8FA5B3" }}>{balance < 0 ? "credits still short" : "credits left over"}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: "#D9A73B" }}>{doneCount}/{totalScenes}</div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: "#D9A73B" }}>{scenesCovered}/{totalScenes}</div>
+                    <div style={{ fontSize: 9, color: "#8FA5B3" }}>scenes assigned to an account</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 600, color: "#4C9A5B" }}>{doneCount}</div>
                     <div style={{ fontSize: 9, color: "#8FA5B3" }}>scenes generated</div>
                   </div>
                 </div>
-                {scenesShort > 0 && (
+                {scenesCovered < totalScenes && (
                   <div style={{ fontSize: 12, color: "#C98C6E", background: "#2A1F1A", border: "1px solid #8C5A3C", borderRadius: 4, padding: "8px 10px", marginBottom: 14 }}>
-                    {scenesShort} scene{scenesShort === 1 ? "" : "s"} still have nowhere to go — add another account below to cover the remaining {scenesShort * CREDITS_PER_VIDEO} credits.
+                    {totalScenes - scenesCovered} scene{totalScenes - scenesCovered === 1 ? "" : "s"} haven't been typed into an account yet.
                   </div>
                 )}
-                {scenesShort <= 0 && selectedAccountObjs.length > 0 && balance > 0 && (
-                  <div style={{ fontSize: 12, color: "#4C9A5B", marginBottom: 14 }}>
-                    All {totalScenes} scenes are covered, with {balance} credits ({balance / CREDITS_PER_VIDEO} videos) left spare on the last account.
+                {balance < 0 && (
+                  <div style={{ fontSize: 12, color: "#C98C6E", background: "#2A1F1A", border: "1px solid #8C5A3C", borderRadius: 4, padding: "8px 10px", marginBottom: 14 }}>
+                    The scenes you've assigned need {balance * -1} more credits than your added accounts provide — add another account.
                   </div>
                 )}
 
-                {/* Per-account breakdown */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 8 }}>ACCOUNTS ON THIS TOPIC</div>
-                  {selectedAccountObjs.length === 0 && (
-                    <div style={{ fontSize: 12, color: "#6B7D8C", marginBottom: 8 }}>No accounts added yet — add one below to start covering the {totalNeeded} credits this script needs.</div>
+                  <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 8 }}>ACCOUNTS ON THIS TOPIC — TYPE IN WHICH SCENE NUMBERS EACH ONE COVERS</div>
+                  {perAccount.length === 0 && (
+                    <div style={{ fontSize: 12, color: "#6B7D8C", marginBottom: 8 }}>No accounts added yet — add one below, then type in which scene numbers it covers.</div>
                   )}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {allocation.map(({ account, scenes }) => {
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {perAccount.map(({ account, scenes }) => {
                       const creditsUsed = scenes.length * CREDITS_PER_VIDEO;
                       const creditsLeft = CREDITS_PER_ACCOUNT - creditsUsed;
-                      const done = scenes.filter((s) => t.completedScenes[s]).length;
-                      const rangeLabel = scenes.length === 0 ? "no scenes assigned" : scenes.length === 1 ? `scene ${scenes[0]}` : `scenes ${scenes[0]}–${scenes[scenes.length - 1]}`;
+                      const done = scenes.filter((s) => t.completedScenes[`${account.id}:${s}`]).length;
                       return (
-                        <div key={account.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
-                          <div>
-                            <span style={{ fontWeight: 600 }}>{account.name}</span>
-                            <span style={{ color: "#8FA5B3", marginLeft: 8 }}>{rangeLabel} · {creditsUsed}/{CREDITS_PER_ACCOUNT} credits used · {creditsLeft} left · {done}/{scenes.length} done</span>
+                        <div key={account.id} style={{ background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: 10 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{account.name}</span>
+                            <button onClick={() => removeAccountFromTopic(t.id, account.id)} style={{ background: "transparent", border: "none", color: "#8C5A3C", fontSize: 13, cursor: "pointer" }}>×</button>
                           </div>
-                          <button onClick={() => removeAccountFromTopic(t.id, account.id)} style={{ background: "transparent", border: "none", color: "#8C5A3C", fontSize: 13, cursor: "pointer" }}>×</button>
+                          <input
+                            value={sceneAssignments[account.id] || ""}
+                            onChange={(e) => updateSceneAssignment(t.id, account.id, e.target.value)}
+                            placeholder="Scene numbers for this account, e.g. 1-5 or 3, 7, 9, 12"
+                            style={{ width: "100%", marginBottom: 6 }}
+                          />
+                          <div style={{ fontSize: 11, color: creditsLeft < 0 ? "#C98C6E" : "#8FA5B3" }}>
+                            {scenes.length} scene{scenes.length === 1 ? "" : "s"} · {creditsUsed}/{CREDITS_PER_ACCOUNT} credits used · {creditsLeft} left · {done}/{scenes.length} done
+                          </div>
                         </div>
                       );
                     })}
@@ -354,15 +380,12 @@ export default function FlowPlanner({ user }) {
                   )}
                 </div>
 
-                {/* Environment & completion */}
-                {selectedAccountObjs.length > 0 && (
+                {perAccount.length > 0 && (
                   <>
                     <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 8 }}>ENVIRONMENT & COMPLETION BY ACCOUNT</div>
-                    {allocation.map(({ account, scenes }) => (
+                    {perAccount.map(({ account, scenes }) => (
                       <div key={account.id} style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 11, color: "#B9C3CB", marginBottom: 5 }}>
-                          {account.name}{scenes.length > 0 ? ` — scenes ${scenes[0]}${scenes.length > 1 ? `–${scenes[scenes.length - 1]}` : ""}` : ""}
-                        </div>
+                        <div style={{ fontSize: 11, color: "#B9C3CB", marginBottom: 5 }}>{account.name}</div>
                         {scenes.length > 0 && (
                           <input
                             value={(t.environments && t.environments[account.id]) || ""}
@@ -372,22 +395,23 @@ export default function FlowPlanner({ user }) {
                           />
                         )}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {scenes.length === 0 && <span style={{ fontSize: 11, color: "#5A6E7C" }}>No scenes assigned</span>}
-                          {scenes.map((sceneNum) => {
-                            const done = !!t.completedScenes[sceneNum];
+                          {scenes.length === 0 && <span style={{ fontSize: 11, color: "#5A6E7C" }}>No scenes typed in above yet</span>}
+                          {scenes.map((sceneLabel) => {
+                            const key = `${account.id}:${sceneLabel}`;
+                            const done = !!t.completedScenes[key];
                             return (
                               <button
-                                key={sceneNum}
-                                onClick={() => toggleScene(t.id, sceneNum)}
-                                title={`Scene ${sceneNum} — ${done ? "done" : "not started"}`}
+                                key={key}
+                                onClick={() => toggleScene(t.id, key)}
+                                title={`Scene ${sceneLabel} — ${done ? "done" : "not started"}`}
                                 style={{
-                                  width: 28, height: 28, borderRadius: 6, fontSize: 11, fontWeight: 600,
+                                  minWidth: 28, height: 28, padding: "0 6px", borderRadius: 6, fontSize: 11, fontWeight: 600,
                                   border: `2px solid ${done ? "#4C9A5B" : "#33475A"}`,
                                   background: done ? "#4C9A5B" : "transparent",
                                   color: done ? "#14212B" : "#E9E1CC",
                                 }}
                               >
-                                {sceneNum}
+                                {sceneLabel}
                               </button>
                             );
                           })}
