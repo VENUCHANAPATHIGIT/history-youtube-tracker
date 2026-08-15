@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "./firebase.js";
 import FlowPlanner from "./FlowPlanner.jsx";
 import SchedulePage from "./SchedulePage.jsx";
+import EnvPromptGenerator from "./EnvPromptGenerator.jsx";
 import logoUrl from "./assets/logo.png";
 
 const PHASES = [
@@ -808,6 +809,14 @@ function HomePage({ onNavigate }) {
             <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Upload Schedule</div>
             <div style={{ fontSize: 12, color: "#8FA5B3" }}>Calendar and list of planned and actual YouTube upload dates.</div>
           </button>
+          <button
+            onClick={() => onNavigate("envgen")}
+            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
+          >
+            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
+            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Environment Prompt Generator</div>
+            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Fill in environment name/prompt pairs and get the full Google Flow master template, ready to paste.</div>
+          </button>
         </div>
       </div>
     </div>
@@ -821,6 +830,7 @@ function NavShell({ page, onNavigate }) {
     { id: "ledger", label: "Production Ledger" },
     { id: "flow", label: "Flow Credits Planner" },
     { id: "schedule", label: "Upload Schedule" },
+    { id: "envgen", label: "Environment Prompt Generator" },
   ];
   return (
     <>
@@ -912,6 +922,7 @@ export default function App() {
       {page === "ledger" && <Tracker user={user} focusTopicId={focusTopicId} onFocusConsumed={() => setFocusTopicId(null)} />}
       {page === "flow" && <FlowPlanner user={user} />}
       {page === "schedule" && <SchedulePage user={user} onOpenTopic={openTopicInLedger} />}
+      {page === "envgen" && <EnvPromptGenerator user={user} />}
     </>
   );
 }
