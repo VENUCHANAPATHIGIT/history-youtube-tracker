@@ -127,7 +127,11 @@ export default function SchedulePage({ user, onOpenTopic }) {
 
   // Only topics you've marked "Topic Completed: Yes" on the Ledger (and not
   // already uploaded) are ready to be scheduled — candidates for the "add to this day" picker.
+  // Only topics you've marked "Topic Completed: Yes" on the Ledger (and not
+  // already uploaded) are ready to be scheduled — candidates for the "add to this day" picker.
   const schedulableTopics = (topics || []).filter((t) => t.completed && !t.uploaded);
+  const schedulableFullVideos = schedulableTopics.filter((t) => !t.ytShortCreated);
+  const schedulableShorts = schedulableTopics.filter((t) => t.ytShortCreated);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -157,6 +161,27 @@ export default function SchedulePage({ user, onOpenTopic }) {
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#4C9A5B", display: "inline-block" }} /> posted</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> planned to upload</span>
           <span style={{ color: "#5A6E7C" }}>— click a topic name to open it on the Ledger, click the dot to flip its status, × to remove, + to add one</span>
+        </div>
+
+        {/* Weekly rhythm reference */}
+        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
+          <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 10 }}>WEEKLY UPLOAD RHYTHM</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, fontSize: 11 }}>
+            {[
+              ["Mon", "Long-form + Short"],
+              ["Tue", "Short only"],
+              ["Wed", "Long-form + Short"],
+              ["Thu", "Short only"],
+              ["Fri", "Long-form + Short"],
+              ["Sat", "Short only"],
+              ["Sun", "Long-form + Short"],
+            ].map(([day, plan]) => (
+              <div key={day} style={{ textAlign: "center" }}>
+                <div style={{ color: "#8FA5B3", marginBottom: 3 }}>{day}</div>
+                <div style={{ color: plan === "Short only" ? "#D9A73B" : "#4C9A5B", fontSize: 10 }}>{plan}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Weekly calendar */}
@@ -286,18 +311,43 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
             {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No completed topics ready to schedule yet — set "Topic Completed" to Yes on the Production Ledger first.</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {schedulableTopics.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => assignTopicToDay(t.id, pickerDate)}
-                  style={{ textAlign: "left", background: "#14212B", border: "1px solid #33475A", borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#E9E1CC" }}
-                >
-                  {t.name}
-                  {t.completionDate && <span style={{ fontSize: 11, color: "#6B7D8C", marginLeft: 6 }}>(currently planned {t.completionDate})</span>}
-                </button>
-              ))}
-            </div>
+
+            {schedulableFullVideos.length > 0 && (
+              <>
+                <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>FULL VIDEO TOPICS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                  {schedulableFullVideos.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => assignTopicToDay(t.id, pickerDate)}
+                      style={{ textAlign: "left", background: "#14212B", border: "1px solid #33475A", borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#E9E1CC" }}
+                    >
+                      {t.name}
+                      {t.completionDate && <span style={{ fontSize: 11, color: "#6B7D8C", marginLeft: 6 }}>(currently planned {t.completionDate})</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {schedulableShorts.length > 0 && (
+              <>
+                <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>YT SHORT TOPICS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {schedulableShorts.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => assignTopicToDay(t.id, pickerDate)}
+                      style={{ textAlign: "left", background: "#14212B", border: "1px solid #33475A", borderRadius: 6, padding: "8px 10px", fontSize: 13, color: "#E9E1CC" }}
+                    >
+                      {t.name}
+                      {t.completionDate && <span style={{ fontSize: 11, color: "#6B7D8C", marginLeft: 6 }}>(currently planned {t.completionDate})</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
