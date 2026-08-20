@@ -4,6 +4,8 @@ import { auth, db } from "./firebase.js";
 import { signOut } from "firebase/auth";
 
 const DAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+// Indexed by Date.getDay() (0=Sun..6=Sat): "both" = Long-form + Short, "short" = Short only.
+const WEEKLY_RHYTHM = ["both", "both", "short", "both", "short", "both", "short"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function pad(n) {
@@ -167,20 +169,15 @@ export default function SchedulePage({ user, onOpenTopic }) {
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
           <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 10 }}>WEEKLY UPLOAD RHYTHM</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, fontSize: 11 }}>
-            {[
-              ["Mon", "Long-form + Short"],
-              ["Tue", "Short only"],
-              ["Wed", "Long-form + Short"],
-              ["Thu", "Short only"],
-              ["Fri", "Long-form + Short"],
-              ["Sat", "Short only"],
-              ["Sun", "Long-form + Short"],
-            ].map(([day, plan]) => (
-              <div key={day} style={{ textAlign: "center" }}>
-                <div style={{ color: "#8FA5B3", marginBottom: 3 }}>{day}</div>
-                <div style={{ color: plan === "Short only" ? "#D9A73B" : "#4C9A5B", fontSize: 10 }}>{plan}</div>
-              </div>
-            ))}
+            {DAY_LABELS.map((label, i) => {
+              const plan = WEEKLY_RHYTHM[i] === "short" ? "Short only" : "Long-form + Short";
+              return (
+                <div key={label} style={{ textAlign: "center" }}>
+                  <div style={{ color: "#8FA5B3", marginBottom: 3 }}>{label[0]}{label.slice(1).toLowerCase()}</div>
+                  <div style={{ color: plan === "Short only" ? "#D9A73B" : "#4C9A5B", fontSize: 10 }}>{plan}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -195,38 +192,38 @@ export default function SchedulePage({ user, onOpenTopic }) {
             <button onClick={goNext} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "5px 10px", fontSize: 13 }}>›</button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
             {weekDays.map((d) => {
               const iso = isoDate(d);
               const dayEntries = entriesByDate[iso] || [];
               const isToday = iso === todayIso;
               return (
-                <div key={iso}>
+                <div key={iso} style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: isToday ? "#C9A54B" : "#6B7D8C", textAlign: "center", marginBottom: 4 }}>
                     {DAY_LABELS[d.getDay()]} {d.getDate()}
                   </div>
                   <div
                     style={{
                       minHeight: 140, border: `1px solid ${isToday ? "#C9A54B" : "#2C4053"}`, borderRadius: 6,
-                      background: "#14212B", padding: 5, display: "flex", flexDirection: "column", gap: 4,
+                      background: "#14212B", padding: 5, display: "flex", flexDirection: "column", gap: 4, minWidth: 0,
                     }}
                   >
                     {dayEntries.map((e) => (
                       <div
                         key={e.topicId}
                         style={{
-                          display: "flex", alignItems: "center", gap: 4, borderRadius: 4, padding: "3px 4px",
-                          background: e.status === "posted" ? "#4C9A5B" : "#D9A73B",
+                          display: "flex", alignItems: "flex-start", gap: 4, borderRadius: 4, padding: "3px 4px",
+                          background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", minWidth: 0,
                         }}
                       >
                         <button
                           onClick={() => openTopic(e.topicId)}
                           title={`${e.name} — open on Production Ledger`}
                           style={{
-                            flex: 1, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
+                            flex: 1, minWidth: 0, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
                             border: "none", background: "transparent", cursor: "pointer", padding: 0,
                             color: e.status === "posted" ? "#0d2116" : "#3a2a05",
-                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
                           }}
                         >
                           {e.name}
@@ -235,7 +232,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                           onClick={() => toggleStatus(e)}
                           title={e.status === "posted" ? "Mark as planned (not yet uploaded)" : "Mark as posted (uploaded today)"}
                           style={{
-                            width: 12, height: 12, borderRadius: "50%", flexShrink: 0, padding: 0, cursor: "pointer",
+                            width: 12, height: 12, borderRadius: "50%", flexShrink: 0, padding: 0, cursor: "pointer", marginTop: 2,
                             border: `2px solid ${e.status === "posted" ? "#0d2116" : "#3a2a05"}`,
                             background: "transparent",
                           }}
@@ -300,19 +297,25 @@ export default function SchedulePage({ user, onOpenTopic }) {
       </div>
 
       {/* Add-topic picker modal */}
-      {pickerDate && (
+      {pickerDate && (() => {
+        const [py, pm, pd] = pickerDate.split("-").map(Number);
+        const pickerDayType = WEEKLY_RHYTHM[new Date(py, pm - 1, pd).getDay()]; // "both" | "short"
+        return (
         <div
           onClick={() => setPickerDate(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 20, width: "100%", maxWidth: 380, maxHeight: "70vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
+            <div style={{ fontSize: 11, color: pickerDayType === "short" ? "#D9A73B" : "#4C9A5B", marginBottom: 12 }}>
+              {pickerDayType === "short" ? "Short-only day — showing YT Short topics only" : "Long-form + Short day"}
+            </div>
             {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No completed topics ready to schedule yet — set "Topic Completed" to Yes on the Production Ledger first.</div>}
 
-            {schedulableFullVideos.length > 0 && (
+            {pickerDayType === "both" && schedulableFullVideos.length > 0 && (
               <>
                 <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>FULL VIDEO TOPICS</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
@@ -350,7 +353,8 @@ export default function SchedulePage({ user, onOpenTopic }) {
 
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
