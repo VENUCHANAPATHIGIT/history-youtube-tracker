@@ -132,8 +132,10 @@ export default function SchedulePage({ user, onOpenTopic }) {
   // Only topics you've marked "Topic Completed: Yes" on the Ledger (and not
   // already uploaded) are ready to be scheduled — candidates for the "add to this day" picker.
   const schedulableTopics = (topics || []).filter((t) => t.completed && !t.uploaded);
+  // Shorts only need "YouTube Short created?" checked — they don't require the
+  // full "Topic Completed" flag, since a short is often ready before the full video is.
   const schedulableFullVideos = schedulableTopics.filter((t) => !t.ytShortCreated);
-  const schedulableShorts = schedulableTopics.filter((t) => t.ytShortCreated);
+  const schedulableShorts = (topics || []).filter((t) => t.ytShortCreated && !t.uploaded);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -313,7 +315,11 @@ export default function SchedulePage({ user, onOpenTopic }) {
             <div style={{ fontSize: 11, color: pickerDayType === "short" ? "#D9A73B" : "#4C9A5B", marginBottom: 12 }}>
               {pickerDayType === "short" ? "Short-only day — showing YT Short topics only" : "Long-form + Short day"}
             </div>
-            {schedulableTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No completed topics ready to schedule yet — set "Topic Completed" to Yes on the Production Ledger first.</div>}
+            {schedulableFullVideos.length === 0 && schedulableShorts.length === 0 && (
+              <div style={{ fontSize: 12, color: "#6B7D8C" }}>
+                Nothing ready to schedule — set "Topic Completed" to Yes for full videos, or check "YouTube Short created?" for shorts, on the Production Ledger first.
+              </div>
+            )}
 
             {pickerDayType === "both" && schedulableFullVideos.length > 0 && (
               <>
