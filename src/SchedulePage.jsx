@@ -180,7 +180,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
   const schedulableTopics = (topics || []).filter((t) => t.completed && !t.uploaded);
   // Shorts only need "YouTube Short created?" checked — they don't require the
   // full "Topic Completed" flag, since a short is often ready before the full video is.
-  const schedulableFullVideos = schedulableTopics.filter((t) => !t.ytShortCreated);
+  // A topic can be both a full video AND a short at once, so these two lists
+  // are not mutually exclusive — a topic marked as a short still shows up here too.
+  const schedulableFullVideos = schedulableTopics;
   const schedulableShorts = (topics || []).filter((t) => t.ytShortCreated && !t.uploaded);
   // For the SHORTS panel display — every short regardless of upload status,
   // so it's a complete list, not just the ones still needing a date.
