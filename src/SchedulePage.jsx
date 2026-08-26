@@ -182,6 +182,9 @@ export default function SchedulePage({ user, onOpenTopic }) {
   // full "Topic Completed" flag, since a short is often ready before the full video is.
   const schedulableFullVideos = schedulableTopics.filter((t) => !t.ytShortCreated);
   const schedulableShorts = (topics || []).filter((t) => t.ytShortCreated && !t.uploaded);
+  // For the SHORTS panel display — every short regardless of upload status,
+  // so it's a complete list, not just the ones still needing a date.
+  const allShorts = (topics || []).filter((t) => t.ytShortCreated);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -233,37 +236,48 @@ export default function SchedulePage({ user, onOpenTopic }) {
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 16, marginBottom: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div style={{ fontSize: 10, color: "#C9A54B" }}>SHORTS</div>
-            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{schedulableShorts.length}</div>
+            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{allShorts.length}</div>
           </div>
-          {schedulableShorts.length === 0 && (
+          {allShorts.length === 0 && (
             <div style={{ fontSize: 12, color: "#6B7D8C" }}>No shorts yet — check "YouTube Short created?" on a topic in the Production Ledger and it shows up here automatically.</div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {schedulableShorts.map((t) => (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
-                <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
-                  {t.name}
-                  {t.completionDate && <span style={{ color: "#D9A73B", fontSize: 11, marginLeft: 6 }}>· planned {t.completionDate}</span>}
-                </button>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="date"
-                    value={shortDateDrafts[t.id] ?? (t.completionDate || "")}
-                    onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
-                    style={{ fontSize: 12 }}
-                  />
-                  <button
-                    onClick={() => {
-                      const iso = shortDateDrafts[t.id] || t.completionDate;
-                      if (iso) assignTopicToDay(t.id, iso);
-                    }}
-                    style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
-                  >
-                    {t.completionDate ? "Update" : "Add to day"}
+            {allShorts.map((t) =>
+              t.uploaded ? (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
+                  <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
+                    {t.name}
                   </button>
+                  <span style={{ fontSize: 11, color: "#4C9A5B", background: "transparent", border: "1px solid #4C9A5B", borderRadius: 4, padding: "3px 8px" }}>
+                    Posted{(t.uploadedDate || t.uploadDetails?.publishDate) ? ` · ${t.uploadedDate || t.uploadDetails?.publishDate}` : ""}
+                  </span>
                 </div>
-              </div>
-            ))}
+              ) : (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
+                  <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
+                    {t.name}
+                    {t.completionDate && <span style={{ color: "#D9A73B", fontSize: 11, marginLeft: 6 }}>· planned {t.completionDate}</span>}
+                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="date"
+                      value={shortDateDrafts[t.id] ?? (t.completionDate || "")}
+                      onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                      style={{ fontSize: 12 }}
+                    />
+                    <button
+                      onClick={() => {
+                        const iso = shortDateDrafts[t.id] || t.completionDate;
+                        if (iso) assignTopicToDay(t.id, iso);
+                      }}
+                      style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
+                    >
+                      {t.completionDate ? "Update" : "Add to day"}
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </div>
 
