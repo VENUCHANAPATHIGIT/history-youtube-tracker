@@ -982,13 +982,15 @@ export default function App() {
   return (
     <>
       <NavShell page={page} onNavigate={setPage} />
-      {page === "home" && <HomePage onNavigate={setPage} />}
-      {page === "ledger" && <Tracker user={user} focusTopicId={focusTopicId} onFocusConsumed={() => setFocusTopicId(null)} />}
-      {page === "flow" && <FlowPlanner user={user} />}
-      {page === "schedule" && <SchedulePage user={user} onOpenTopic={openTopicInLedger} />}
-      {page === "envgen" && <EnvPromptGenerator user={user} />}
-      {page === "scenegen" && <ScenePromptGenerator user={user} />}
-      {page === "videogen" && <VideoPromptGenerator user={user} />}
+      <div key={page} className="page-transition">
+        {page === "home" && <HomePage onNavigate={setPage} />}
+        {page === "ledger" && <Tracker user={user} focusTopicId={focusTopicId} onFocusConsumed={() => setFocusTopicId(null)} />}
+        {page === "flow" && <FlowPlanner user={user} />}
+        {page === "schedule" && <SchedulePage user={user} onOpenTopic={openTopicInLedger} />}
+        {page === "envgen" && <EnvPromptGenerator user={user} />}
+        {page === "scenegen" && <ScenePromptGenerator user={user} />}
+        {page === "videogen" && <VideoPromptGenerator user={user} />}
+      </div>
     </>
   );
 }

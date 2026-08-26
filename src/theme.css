@@ -64,6 +64,21 @@ button[style*="#C9A54B"] {
   box-shadow: 0 4px 14px rgba(201, 165, 75, 0.28);
 }
 
+/* Page-switch transition — the wrapper remounts (keyed by page) so this replays every time */
+.page-transition {
+  animation: pageFadeIn 0.28s ease;
+}
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 ::selection {
   background: rgba(201, 165, 75, 0.35);
 }

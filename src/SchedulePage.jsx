@@ -28,24 +28,31 @@ function addDays(date, n) {
 
 // Build a flat list of schedule entries from topics: one entry per topic that has
 // either an actual uploaded date (posted) or a completion date (planned target).
-function buildEntries(topics) {
+// Custom entries (free text, not tied to any Ledger topic) are merged in the same shape.
+function buildEntries(topics, customEntries) {
   const entries = [];
   (topics || []).forEach((t) => {
     const uploadedDate = t.uploadedDate || t.uploadDetails?.publishDate;
     if (t.uploaded && uploadedDate) {
-      entries.push({ topicId: t.id, name: t.name, date: uploadedDate, status: "posted" });
+      entries.push({ id: t.id, topicId: t.id, name: t.name, date: uploadedDate, status: "posted", source: "topic" });
     } else if (!t.uploaded && t.completionDate) {
-      entries.push({ topicId: t.id, name: t.name, date: t.completionDate, status: "planned" });
+      entries.push({ id: t.id, topicId: t.id, name: t.name, date: t.completionDate, status: "planned", source: "topic" });
     }
+  });
+  (customEntries || []).forEach((c) => {
+    entries.push({ id: c.id, name: c.name, date: c.date, status: c.status, source: "custom" });
   });
   return entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
 export default function SchedulePage({ user, onOpenTopic }) {
   const [topics, setTopics] = useState(null);
+  const [customEntries, setCustomEntries] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [pickerDate, setPickerDate] = useState(null); // iso date string when the add-topic picker is open
+  const [customDraftText, setCustomDraftText] = useState(""); // text for the custom-entry input in the picker
+  const [shortDateDrafts, setShortDateDrafts] = useState({}); // topicId -> draft date string for the Shorts panel
   const [saveState, setSaveState] = useState("synced");
   const suppressNextSnapshot = useRef(false);
   const docRef = useRef(doc(db, "users", user.uid, "tracker", "main"));
@@ -54,14 +61,22 @@ export default function SchedulePage({ user, onOpenTopic }) {
     let unsub;
     (async () => {
       const snap = await getDoc(docRef.current);
-      if (snap.exists()) setTopics(snap.data().topics || []);
+      if (snap.exists()) {
+        const data = snap.data();
+        setTopics(data.topics || []);
+        setCustomEntries(data.scheduleCustomEntries || []);
+      }
       setLoaded(true);
       unsub = onSnapshot(docRef.current, (snap2) => {
         if (suppressNextSnapshot.current) {
           suppressNextSnapshot.current = false;
           return;
         }
-        if (snap2.exists()) setTopics(snap2.data().topics || []);
+        if (snap2.exists()) {
+          const data2 = snap2.data();
+          setTopics(data2.topics || []);
+          setCustomEntries(data2.scheduleCustomEntries || []);
+        }
       });
     })();
     return () => unsub && unsub();
@@ -79,6 +94,28 @@ export default function SchedulePage({ user, onOpenTopic }) {
     });
   };
 
+  // Persists the custom entries array (free-text calendar entries not tied to a Ledger topic).
+  const saveCustomEntries = (next) => {
+    setCustomEntries(next);
+    setSaveState("saving…");
+    suppressNextSnapshot.current = true;
+    setDoc(docRef.current, { scheduleCustomEntries: next }, { merge: true }).then(() => setSaveState("synced"));
+  };
+
+  const addCustomEntry = (dateIso, name) => {
+    if (!name.trim()) return;
+    const entry = { id: "c" + Date.now(), name: name.trim(), date: dateIso, status: "planned" };
+    saveCustomEntries([...customEntries, entry]);
+    setCustomDraftText("");
+    setPickerDate(null);
+  };
+  const toggleCustomStatus = (id) => {
+    saveCustomEntries(customEntries.map((c) => (c.id === id ? { ...c, status: c.status === "posted" ? "planned" : "posted" } : c)));
+  };
+  const removeCustomEntry = (id) => {
+    saveCustomEntries(customEntries.filter((c) => c.id !== id));
+  };
+
   if (!loaded) {
     return (
       <div style={{ background: "#14212B", color: "#E9E1CC", height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif" }}>
@@ -87,7 +124,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
     );
   }
 
-  const entries = buildEntries(topics);
+  const entries = buildEntries(topics, customEntries);
   const entriesByDate = {};
   entries.forEach((e) => {
     (entriesByDate[e.date] = entriesByDate[e.date] || []).push(e);
@@ -115,6 +152,10 @@ export default function SchedulePage({ user, onOpenTopic }) {
 
   // Toggle a scheduled entry between planned (yellow) and posted (green).
   const toggleStatus = (entry) => {
+    if (entry.source === "custom") {
+      toggleCustomStatus(entry.id);
+      return;
+    }
     if (entry.status === "planned") {
       patchTopic(entry.topicId, { uploaded: true, uploadedDate: entry.date });
     } else {
@@ -122,9 +163,14 @@ export default function SchedulePage({ user, onOpenTopic }) {
     }
   };
 
-  // Fully unschedules a topic — clears whichever date put it on the calendar.
-  const removeFromSchedule = (topicId) => {
-    patchTopic(topicId, { completionDate: "", uploaded: false, uploadedDate: "" });
+  // Fully unschedules an entry — clears whichever date put it on the calendar (or
+  // deletes it outright if it's a custom entry).
+  const removeFromSchedule = (entry) => {
+    if (entry.source === "custom") {
+      removeCustomEntry(entry.id);
+      return;
+    }
+    patchTopic(entry.topicId, { completionDate: "", uploaded: false, uploadedDate: "" });
   };
 
   // Only topics you've marked "Topic Completed: Yes" on the Ledger (and not
@@ -183,6 +229,44 @@ export default function SchedulePage({ user, onOpenTopic }) {
           </div>
         </div>
 
+        {/* Shorts — auto-populated from Ledger topics marked "YouTube Short created?" */}
+        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 16, marginBottom: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: "#C9A54B" }}>SHORTS</div>
+            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{schedulableShorts.length}</div>
+          </div>
+          {schedulableShorts.length === 0 && (
+            <div style={{ fontSize: 12, color: "#6B7D8C" }}>No shorts yet — check "YouTube Short created?" on a topic in the Production Ledger and it shows up here automatically.</div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {schedulableShorts.map((t) => (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
+                <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
+                  {t.name}
+                  {t.completionDate && <span style={{ color: "#D9A73B", fontSize: 11, marginLeft: 6 }}>· planned {t.completionDate}</span>}
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input
+                    type="date"
+                    value={shortDateDrafts[t.id] ?? (t.completionDate || "")}
+                    onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                    style={{ fontSize: 12 }}
+                  />
+                  <button
+                    onClick={() => {
+                      const iso = shortDateDrafts[t.id] || t.completionDate;
+                      if (iso) assignTopicToDay(t.id, iso);
+                    }}
+                    style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
+                  >
+                    {t.completionDate ? "Update" : "Add to day"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Weekly calendar */}
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 16, marginBottom: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -212,24 +296,37 @@ export default function SchedulePage({ user, onOpenTopic }) {
                   >
                     {dayEntries.map((e) => (
                       <div
-                        key={e.topicId}
+                        key={e.id}
                         style={{
                           display: "flex", alignItems: "flex-start", gap: 4, borderRadius: 4, padding: "3px 4px",
                           background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", minWidth: 0,
                         }}
                       >
-                        <button
-                          onClick={() => openTopic(e.topicId)}
-                          title={`${e.name} — open on Production Ledger`}
-                          style={{
-                            flex: 1, minWidth: 0, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
-                            border: "none", background: "transparent", cursor: "pointer", padding: 0,
-                            color: e.status === "posted" ? "#0d2116" : "#3a2a05",
-                            whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
-                          }}
-                        >
-                          {e.name}
-                        </button>
+                        {e.source === "custom" ? (
+                          <div
+                            title={e.name}
+                            style={{
+                              flex: 1, minWidth: 0, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
+                              color: e.status === "posted" ? "#0d2116" : "#3a2a05",
+                              whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
+                            }}
+                          >
+                            {e.name}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openTopic(e.topicId)}
+                            title={`${e.name} — open on Production Ledger`}
+                            style={{
+                              flex: 1, minWidth: 0, fontSize: 10, fontWeight: 600, lineHeight: 1.3, textAlign: "left",
+                              border: "none", background: "transparent", cursor: "pointer", padding: 0,
+                              color: e.status === "posted" ? "#0d2116" : "#3a2a05",
+                              whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
+                            }}
+                          >
+                            {e.name}
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleStatus(e)}
                           title={e.status === "posted" ? "Mark as planned (not yet uploaded)" : "Mark as posted (uploaded today)"}
@@ -240,7 +337,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                           }}
                         />
                         <button
-                          onClick={() => removeFromSchedule(e.topicId)}
+                          onClick={() => removeFromSchedule(e)}
                           title="Remove from schedule"
                           style={{
                             fontSize: 10, lineHeight: 1, flexShrink: 0, padding: "0 2px", cursor: "pointer",
@@ -271,11 +368,18 @@ export default function SchedulePage({ user, onOpenTopic }) {
           {weekEntries.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing scheduled or posted this week.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {weekEntries.map((e) => (
-              <div key={e.topicId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, borderBottom: "1px solid #2C4053", paddingBottom: 8 }}>
-                <button onClick={() => openTopic(e.topicId)} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "#E9E1CC" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", flexShrink: 0 }} />
-                  <span>{e.name}</span>
-                </button>
+              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, borderBottom: "1px solid #2C4053", paddingBottom: 8 }}>
+                {e.source === "custom" ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#E9E1CC" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", flexShrink: 0 }} />
+                    <span>{e.name}</span>
+                  </div>
+                ) : (
+                  <button onClick={() => openTopic(e.topicId)} style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "#E9E1CC" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: e.status === "posted" ? "#4C9A5B" : "#D9A73B", flexShrink: 0 }} />
+                    <span>{e.name}</span>
+                  </button>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button
                     onClick={() => toggleStatus(e)}
@@ -285,7 +389,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                   </button>
                   <span style={{ fontSize: 12, color: "#8FA5B3" }}>{e.date}</span>
                   <button
-                    onClick={() => removeFromSchedule(e.topicId)}
+                    onClick={() => removeFromSchedule(e)}
                     title="Remove from schedule"
                     style={{ fontSize: 13, background: "transparent", border: "none", color: "#8C5A3C", cursor: "pointer", padding: "0 2px" }}
                   >
@@ -315,6 +419,26 @@ export default function SchedulePage({ user, onOpenTopic }) {
             <div style={{ fontSize: 11, color: pickerDayType === "short" ? "#D9A73B" : "#4C9A5B", marginBottom: 12 }}>
               {pickerDayType === "short" ? "Short-only day — showing YT Short topics only" : "Long-form + Short day"}
             </div>
+
+            <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #2C4053" }}>
+              <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>OR ADD A CUSTOM ENTRY (not tied to a Ledger topic)</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  value={customDraftText}
+                  onChange={(e) => setCustomDraftText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addCustomEntry(pickerDate, customDraftText); }}
+                  placeholder="e.g. Community post, livestream…"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  onClick={() => addCustomEntry(pickerDate, customDraftText)}
+                  style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 12px", fontWeight: 600, fontSize: 12 }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
             {schedulableFullVideos.length === 0 && schedulableShorts.length === 0 && (
               <div style={{ fontSize: 12, color: "#6B7D8C" }}>
                 Nothing ready to schedule — set "Topic Completed" to Yes for full videos, or check "YouTube Short created?" for shorts, on the Production Ledger first.
