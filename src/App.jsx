@@ -545,7 +545,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           {sectionOpen.videosShorts && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
               <div>
-                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>ALL VIDEOS ({state.topics.length})</div>
+                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>LONG VIDEOS ({state.topics.length})</div>
                 {state.topics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics yet.</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {state.topics.map((t) => (
@@ -554,11 +554,12 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>YT SHORTS ({ytShortTopics.length})</div>
-                {ytShortTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No shorts created yet — check "YouTube Short created?" on a topic to list it here.</div>}
+                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>SHORT VIDEOS ({state.topics.length})</div>
+                <div style={{ fontSize: 10, color: "#5A6E7C", marginBottom: 8 }}>green = short created · white = not created yet</div>
+                {state.topics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics yet.</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {ytShortTopics.map((t) => (
-                    <div key={t.id} style={{ fontSize: 12, color: "#E9E1CC", borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>{t.name}</div>
+                  {state.topics.map((t) => (
+                    <div key={t.id} style={{ fontSize: 12, color: t.ytShortCreated ? "#4C9A5B" : "#E9E1CC", borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>{t.name}</div>
                   ))}
                 </div>
               </div>
