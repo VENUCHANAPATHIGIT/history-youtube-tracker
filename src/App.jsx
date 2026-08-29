@@ -321,10 +321,24 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     );
   }
 
+  // Options for the topic-name dropdown reflect every OTHER active filter (account,
+  // completed, uploaded) so picking "Topic Completed: No" narrows this list too,
+  // instead of always showing every topic regardless of what's filtered.
+  const topicDropdownOptions = state.topics.filter(
+    (t) =>
+      (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) &&
+      (filterCompleted === "all" || (filterCompleted === "notCompleted" ? !t.completed : t.completed)) &&
+      (filterUploaded === "all" || (filterUploaded === "notUploaded" ? !t.uploaded : t.uploaded))
+  );
+  // If a specific topic was selected but it no longer matches the other filters
+  // (e.g. it was completed and the Completed filter just switched to "No"),
+  // treat the selection as cleared rather than showing a stale, empty result.
+  const effectiveFilterTopic = topicDropdownOptions.some((t) => t.id === filterTopic) ? filterTopic : "all";
+
   const visibleTopics = state.topics.filter(
     (t) =>
       (filterAccount === "all" || (t.accounts || []).includes(filterAccount)) &&
-      (filterTopic === "all" || t.id === filterTopic) &&
+      (effectiveFilterTopic === "all" || t.id === effectiveFilterTopic) &&
       (filterCompleted === "all" || (filterCompleted === "notCompleted" ? !t.completed : t.completed)) &&
       (filterUploaded === "all" || (filterUploaded === "notUploaded" ? !t.uploaded : t.uploaded))
   );
@@ -587,9 +601,12 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
               <option value="all">All accounts</option>
               {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-            <select value={filterTopic} onChange={(e) => setFilterTopic(e.target.value)}>
+            <select
+              value={effectiveFilterTopic}
+              onChange={(e) => setFilterTopic(e.target.value)}
+            >
               <option value="all">All topics</option>
-              {state.topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {topicDropdownOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <select value={filterCompleted} onChange={(e) => setFilterCompleted(e.target.value)}>
               <option value="all">Topic Completed: All</option>
