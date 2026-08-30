@@ -34,15 +34,18 @@ function buildEntries(topics, customEntries) {
   (topics || []).forEach((t) => {
     const uploadedDate = t.uploadedDate || t.uploadDetails?.publishDate;
     if (t.uploaded && uploadedDate) {
-      entries.push({ id: t.id, topicId: t.id, name: t.name, date: uploadedDate, status: "posted", source: "topic" });
+      entries.push({ id: t.id, topicId: t.id, name: t.name, date: uploadedDate, time: t.scheduleTime || "", status: "posted", source: "topic" });
     } else if (!t.uploaded && t.completionDate) {
-      entries.push({ id: t.id, topicId: t.id, name: t.name, date: t.completionDate, status: "planned", source: "topic" });
+      entries.push({ id: t.id, topicId: t.id, name: t.name, date: t.completionDate, time: t.scheduleTime || "", status: "planned", source: "topic" });
     }
   });
   (customEntries || []).forEach((c) => {
-    entries.push({ id: c.id, name: c.name, date: c.date, status: c.status, source: "custom" });
+    entries.push({ id: c.id, name: c.name, date: c.date, time: c.time || "", status: c.status, source: "custom" });
   });
-  return entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return entries.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return (a.time || "").localeCompare(b.time || "");
+  });
 }
 
 export default function SchedulePage({ user, onOpenTopic }) {
@@ -104,7 +107,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
 
   const addCustomEntry = (dateIso, name) => {
     if (!name.trim()) return;
-    const entry = { id: "c" + Date.now(), name: name.trim(), date: dateIso, status: "planned" };
+    const entry = { id: "c" + Date.now(), name: name.trim(), date: dateIso, time: "", status: "planned" };
     saveCustomEntries([...customEntries, entry]);
     setCustomDraftText("");
     setPickerDate(null);
@@ -114,6 +117,19 @@ export default function SchedulePage({ user, onOpenTopic }) {
   };
   const removeCustomEntry = (id) => {
     saveCustomEntries(customEntries.filter((c) => c.id !== id));
+  };
+  const updateCustomEntryTime = (id, time) => {
+    saveCustomEntries(customEntries.map((c) => (c.id === id ? { ...c, time } : c)));
+  };
+
+  // Sets the upload time for a scheduled entry — works for both topic-based
+  // and custom entries.
+  const updateEntryTime = (entry, time) => {
+    if (entry.source === "custom") {
+      updateCustomEntryTime(entry.id, time);
+    } else {
+      patchTopic(entry.topicId, { scheduleTime: time });
+    }
   };
 
   if (!loaded) {
@@ -267,6 +283,13 @@ export default function SchedulePage({ user, onOpenTopic }) {
                       onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
                       style={{ fontSize: 12 }}
                     />
+                    <input
+                      type="time"
+                      value={t.scheduleTime || ""}
+                      onChange={(e) => patchTopic(t.id, { scheduleTime: e.target.value })}
+                      title="Upload time"
+                      style={{ fontSize: 12 }}
+                    />
                     <button
                       onClick={() => {
                         const iso = shortDateDrafts[t.id] || t.completionDate;
@@ -327,6 +350,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                               whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
                             }}
                           >
+                            {e.time && <span style={{ opacity: 0.75 }}>{e.time} · </span>}
                             {e.name}
                           </div>
                         ) : (
@@ -340,6 +364,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                               whiteSpace: "normal", wordBreak: "break-word", overflowWrap: "anywhere",
                             }}
                           >
+                            {e.time && <span style={{ opacity: 0.75 }}>{e.time} · </span>}
                             {e.name}
                           </button>
                         )}
@@ -404,6 +429,13 @@ export default function SchedulePage({ user, onOpenTopic }) {
                     {e.status === "posted" ? "Posted" : "Planned"}
                   </button>
                   <span style={{ fontSize: 12, color: "#8FA5B3" }}>{e.date}</span>
+                  <input
+                    type="time"
+                    value={e.time || ""}
+                    onChange={(ev) => updateEntryTime(e, ev.target.value)}
+                    title="Upload time"
+                    style={{ fontSize: 12, padding: "3px 6px" }}
+                  />
                   <button
                     onClick={() => removeFromSchedule(e)}
                     title="Remove from schedule"
