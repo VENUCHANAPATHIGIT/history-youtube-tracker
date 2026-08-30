@@ -1,5 +1,15 @@
 /* Charitrika — shared UI polish, applies to every page in the app */
 
+/* Subtle wallpaper texture behind every page — a faint dotted grid over the
+   existing radial glow, like old parchment/graph paper. Needs !important
+   since it's overriding one piece of an inline `background` shorthand. */
+div[style*="radial-gradient(1200px 600px at 10% -10%"] {
+  background-image: radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212b 55%),
+    radial-gradient(circle at 1px 1px, rgba(201, 165, 75, 0.06) 1.2px, transparent 0) !important;
+  background-size: auto, 28px 28px !important;
+  background-color: #14212b !important;
+}
+
 * {
   transition: box-shadow 0.18s ease, border-color 0.15s ease, background-color 0.15s ease,
     transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;

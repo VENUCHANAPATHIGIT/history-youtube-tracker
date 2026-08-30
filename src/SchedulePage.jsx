@@ -51,11 +51,13 @@ function buildEntries(topics, customEntries) {
 export default function SchedulePage({ user, onOpenTopic }) {
   const [topics, setTopics] = useState(null);
   const [customEntries, setCustomEntries] = useState([]);
+  const [dayTypes, setDayTypes] = useState({}); // weekday index (0-6) -> "both" | "short" | "full" | "none"
   const [loaded, setLoaded] = useState(false);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [pickerDate, setPickerDate] = useState(null); // iso date string when the add-topic picker is open
   const [customDraftText, setCustomDraftText] = useState(""); // text for the custom-entry input in the picker
   const [shortDateDrafts, setShortDateDrafts] = useState({}); // topicId -> draft date string for the Shorts panel
+  const [shortsOpen, setShortsOpen] = useState(true);
   const [saveState, setSaveState] = useState("synced");
   const suppressNextSnapshot = useRef(false);
   const docRef = useRef(doc(db, "users", user.uid, "tracker", "main"));
@@ -68,6 +70,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
         const data = snap.data();
         setTopics(data.topics || []);
         setCustomEntries(data.scheduleCustomEntries || []);
+        setDayTypes(data.scheduleDayTypes || {});
       }
       setLoaded(true);
       unsub = onSnapshot(docRef.current, (snap2) => {
@@ -79,12 +82,21 @@ export default function SchedulePage({ user, onOpenTopic }) {
           const data2 = snap2.data();
           setTopics(data2.topics || []);
           setCustomEntries(data2.scheduleCustomEntries || []);
+          setDayTypes(data2.scheduleDayTypes || {});
         }
       });
     })();
     return () => unsub && unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const updateDayType = (weekdayIndex, type) => {
+    const next = { ...dayTypes, [weekdayIndex]: type };
+    setDayTypes(next);
+    setSaveState("saving…");
+    suppressNextSnapshot.current = true;
+    setDoc(docRef.current, { scheduleDayTypes: next }, { merge: true }).then(() => setSaveState("synced"));
+  };
 
   // Writes a patch to one topic and pushes the full topics array back to Firestore.
   const patchTopic = async (topicId, patch) => {
@@ -236,7 +248,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
 
         {/* Weekly rhythm reference */}
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
-          <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 10 }}>WEEKLY UPLOAD RHYTHM</div>
+          <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 10 }}>ACTUAL UPLOAD PLAN</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, fontSize: 11 }}>
             {DAY_LABELS.map((label, i) => {
               const plan = WEEKLY_RHYTHM[i] === "short" ? "Short only" : "Long-form + Short";
@@ -250,59 +262,36 @@ export default function SchedulePage({ user, onOpenTopic }) {
           </div>
         </div>
 
-        {/* Shorts — auto-populated from Ledger topics marked "YouTube Short created?" */}
-        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 16, marginBottom: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: "#C9A54B" }}>SHORTS</div>
-            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{allShorts.length}</div>
-          </div>
-          {allShorts.length === 0 && (
-            <div style={{ fontSize: 12, color: "#6B7D8C" }}>No shorts yet — check "YouTube Short created?" on a topic in the Production Ledger and it shows up here automatically.</div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {allShorts.map((t) =>
-              t.uploaded ? (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
-                  <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
-                    {t.name}
+        {/* Planned weekly schedule — editable version: choose a video type per weekday and add topics directly */}
+        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
+          <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 4 }}>PLANNED WEEKLY SCHEDULE</div>
+          <div style={{ fontSize: 10, color: "#5A6E7C", marginBottom: 10 }}>Set what type of video goes out each day, and add topics straight from here.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, fontSize: 11 }}>
+            {weekDays.map((d, i) => {
+              const iso = isoDate(d);
+              const dayType = dayTypes[i] || "none";
+              return (
+                <div key={iso} style={{ textAlign: "center", minWidth: 0 }}>
+                  <div style={{ color: "#8FA5B3", marginBottom: 4 }}>{DAY_LABELS[i][0]}{DAY_LABELS[i].slice(1).toLowerCase()} {d.getDate()}</div>
+                  <select
+                    value={dayType}
+                    onChange={(e) => updateDayType(i, e.target.value)}
+                    style={{ width: "100%", fontSize: 10, padding: "4px 2px", marginBottom: 6 }}
+                  >
+                    <option value="none">— none —</option>
+                    <option value="both">Long-form + Short</option>
+                    <option value="full">Long-form only</option>
+                    <option value="short">Short only</option>
+                  </select>
+                  <button
+                    onClick={() => setPickerDate(iso)}
+                    style={{ width: "100%", fontSize: 10, color: "#6B7D8C", background: "transparent", border: "1px dashed #33475A", borderRadius: 4, padding: "3px 0" }}
+                  >
+                    + add
                   </button>
-                  <span style={{ fontSize: 11, color: "#4C9A5B", background: "transparent", border: "1px solid #4C9A5B", borderRadius: 4, padding: "3px 8px" }}>
-                    Posted{(t.uploadedDate || t.uploadDetails?.publishDate) ? ` · ${t.uploadedDate || t.uploadDetails?.publishDate}` : ""}
-                  </span>
                 </div>
-              ) : (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
-                  <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
-                    {t.name}
-                    {t.completionDate && <span style={{ color: "#D9A73B", fontSize: 11, marginLeft: 6 }}>· planned {t.completionDate}</span>}
-                  </button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      type="date"
-                      value={shortDateDrafts[t.id] ?? (t.completionDate || "")}
-                      onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
-                      style={{ fontSize: 12 }}
-                    />
-                    <input
-                      type="time"
-                      value={t.scheduleTime || ""}
-                      onChange={(e) => patchTopic(t.id, { scheduleTime: e.target.value })}
-                      title="Upload time"
-                      style={{ fontSize: 12 }}
-                    />
-                    <button
-                      onClick={() => {
-                        const iso = shortDateDrafts[t.id] || t.completionDate;
-                        if (iso) assignTopicToDay(t.id, iso);
-                      }}
-                      style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
-                    >
-                      {t.completionDate ? "Update" : "Add to day"}
-                    </button>
-                  </div>
-                </div>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
 
@@ -448,12 +437,77 @@ export default function SchedulePage({ user, onOpenTopic }) {
             ))}
           </div>
         </div>
+
+        {/* Shorts — auto-populated from Ledger topics marked "YouTube Short created?", collapsible */}
+        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 16, marginTop: 22 }}>
+          <button
+            onClick={() => setShortsOpen((o) => !o)}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: shortsOpen ? 10 : 0 }}
+          >
+            <div style={{ fontSize: 10, color: "#C9A54B" }}>{shortsOpen ? "▾" : "▸"} SHORTS</div>
+            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{allShorts.length}</div>
+          </button>
+          {shortsOpen && (
+            <>
+              {allShorts.length === 0 && (
+                <div style={{ fontSize: 12, color: "#6B7D8C" }}>No shorts yet — check "YouTube Short created?" on a topic in the Production Ledger and it shows up here automatically.</div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {allShorts.map((t) =>
+                  t.uploaded ? (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
+                      <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
+                        {t.name}
+                      </button>
+                      <span style={{ fontSize: 11, color: "#4C9A5B", background: "transparent", border: "1px solid #4C9A5B", borderRadius: 4, padding: "3px 8px" }}>
+                        Posted{(t.uploadedDate || t.uploadDetails?.publishDate) ? ` · ${t.uploadedDate || t.uploadDetails?.publishDate}` : ""}
+                      </span>
+                    </div>
+                  ) : (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 12, background: "#14212B", border: "1px solid #2C4053", borderRadius: 6, padding: "8px 10px" }}>
+                      <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
+                        {t.name}
+                        {t.completionDate && <span style={{ color: "#D9A73B", fontSize: 11, marginLeft: 6 }}>· planned {t.completionDate}</span>}
+                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <input
+                          type="date"
+                          value={shortDateDrafts[t.id] ?? (t.completionDate || "")}
+                          onChange={(e) => setShortDateDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
+                          style={{ fontSize: 12 }}
+                        />
+                        <input
+                          type="time"
+                          value={t.scheduleTime || ""}
+                          onChange={(e) => patchTopic(t.id, { scheduleTime: e.target.value })}
+                          title="Upload time"
+                          style={{ fontSize: 12 }}
+                        />
+                        <button
+                          onClick={() => {
+                            const iso = shortDateDrafts[t.id] || t.completionDate;
+                            if (iso) assignTopicToDay(t.id, iso);
+                          }}
+                          style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
+                        >
+                          {t.completionDate ? "Update" : "Add to day"}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Add-topic picker modal */}
       {pickerDate && (() => {
         const [py, pm, pd] = pickerDate.split("-").map(Number);
-        const pickerDayType = WEEKLY_RHYTHM[new Date(py, pm - 1, pd).getDay()]; // "both" | "short"
+        const weekdayIdx = new Date(py, pm - 1, pd).getDay();
+        const override = dayTypes[weekdayIdx];
+        const pickerDayType = override && override !== "none" ? override : WEEKLY_RHYTHM[weekdayIdx]; // "both" | "short" | "full"
         return (
         <div
           onClick={() => setPickerDate(null)}
@@ -464,8 +518,8 @@ export default function SchedulePage({ user, onOpenTopic }) {
               <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80" }}>ADD TOPIC TO {pickerDate}</div>
               <button onClick={() => setPickerDate(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ fontSize: 11, color: pickerDayType === "short" ? "#D9A73B" : "#4C9A5B", marginBottom: 12 }}>
-              {pickerDayType === "short" ? "Short-only day — showing YT Short topics only" : "Long-form + Short day"}
+            <div style={{ fontSize: 11, color: pickerDayType === "short" ? "#D9A73B" : pickerDayType === "full" ? "#5C8A80" : "#4C9A5B", marginBottom: 12 }}>
+              {pickerDayType === "short" ? "Short-only day — showing YT Short topics only" : pickerDayType === "full" ? "Long-form only day — showing full video topics only" : "Long-form + Short day"}
             </div>
 
             <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #2C4053" }}>
@@ -493,7 +547,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
               </div>
             )}
 
-            {pickerDayType === "both" && schedulableFullVideos.length > 0 && (
+            {pickerDayType !== "short" && schedulableFullVideos.length > 0 && (
               <>
                 <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>FULL VIDEO TOPICS</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
@@ -511,7 +565,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
               </>
             )}
 
-            {schedulableShorts.length > 0 && (
+            {pickerDayType !== "full" && schedulableShorts.length > 0 && (
               <>
                 <div style={{ fontSize: 10, color: "#8FA5B3", marginBottom: 6 }}>YT SHORT TOPICS</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
