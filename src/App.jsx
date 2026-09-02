@@ -34,12 +34,12 @@ const seedState = () => {
       { id: "a3", name: "Account 3", note: "" },
     ],
     topics: [
-      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
-      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
-      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
-      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
-      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
+      { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
+      { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
+      { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
+      { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
+      { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
     ],
   };
 };
@@ -80,6 +80,8 @@ function migrateTopics(topics) {
     if (next.uploadedDate === undefined) next.uploadedDate = "";
     if (next.completed === undefined) next.completed = false;
     if (next.ytShortCreated === undefined) next.ytShortCreated = false;
+    if (next.ytMetadataCreated === undefined) next.ytMetadataCreated = false;
+    if (next.ytThumbnailCreated === undefined) next.ytThumbnailCreated = false;
     if (next.scheduleTime === undefined) next.scheduleTime = "";
     return next;
   });
@@ -149,6 +151,8 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [filterCompleted, setFilterCompleted] = useState("all");
   const [filterUploaded, setFilterUploaded] = useState("all");
   const [sectionOpen, setSectionOpen] = useState({ inProgress: true, closed: true, uploaded: true, videosShorts: true });
+  const [checklistOpen, setChecklistOpen] = useState({}); // topic id -> bool, defaults to collapsed
+  const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
   const toggleSection = (key) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
   useEffect(() => {
@@ -240,7 +244,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -724,15 +728,48 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 </div>
               </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, cursor: "pointer", width: "fit-content" }}>
-                <input
-                  type="checkbox"
-                  checked={!!t.ytShortCreated}
-                  onChange={(e) => updateTopic(t.id, { ytShortCreated: e.target.checked })}
-                  style={{ width: 14, height: 14 }}
-                />
-                <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube Short created?</span>
-              </label>
+              <div style={{ marginBottom: 12 }}>
+                <button
+                  onClick={() => toggleChecklist(t.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: 0, width: "fit-content" }}
+                >
+                  <span style={{ fontSize: 10, color: "#6B7D8C" }}>{checklistOpen[t.id] ? "▾" : "▸"} YOUTUBE CHECKLIST</span>
+                  <span style={{ fontSize: 10, color: "#5A6E7C" }}>
+                    ({[t.ytShortCreated, t.ytMetadataCreated, t.ytThumbnailCreated].filter(Boolean).length}/3)
+                  </span>
+                </button>
+                {checklistOpen[t.id] && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, paddingLeft: 4 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!t.ytShortCreated}
+                        onChange={(e) => updateTopic(t.id, { ytShortCreated: e.target.checked })}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube Short created?</span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!t.ytMetadataCreated}
+                        onChange={(e) => updateTopic(t.id, { ytMetadataCreated: e.target.checked })}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube metadata created?</span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!t.ytThumbnailCreated}
+                        onChange={(e) => updateTopic(t.id, { ytThumbnailCreated: e.target.checked })}
+                        style={{ width: 14, height: 14 }}
+                      />
+                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube thumbnail created?</span>
+                    </label>
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "#6B7D8C" }}>YOUTUBE STATUS</div>
