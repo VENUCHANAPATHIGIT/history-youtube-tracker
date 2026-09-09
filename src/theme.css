@@ -1,18 +1,29 @@
-/* Charitrika — shared UI polish, applies to every page in the app */
+/* Charitrika — light "Spark"-inspired theme, applied globally via inline-style
+   substring overrides so every page repaints without touching each file's
+   hundreds of individual style objects. See the color map at the bottom of
+   this comment for the full dark -> light mapping used below.
 
-/* Subtle wallpaper texture behind every page — a faint dotted grid over the
-   existing radial glow, like old parchment/graph paper. Needs !important
-   since it's overriding one piece of an inline `background` shorthand. */
+   Page bg      #14212B/#14212b -> #F1F4FA     Card bg   #1D2E3B -> #FFFFFF
+   Nested bg    #0F1922/#0f1922 -> #EDF1F8     Warn bg   #2A1F1A -> #FEF2F2
+   Card border  #2C4053         -> #E4E9F2     Input bdr #33475A/#33475a -> #D8DEEA
+   Muted border #3D5468         -> #CBD3E1
+   Primary text #E9E1CC         -> #1F2937     Secondary #8FA5B3/#B9C3CB -> #475569
+   Muted text   #6B7D8C/#5A6E7C -> #94A3B8
+   Accent (was gold) #C9A54B    -> #4F63EA     Secondary accent #5C8A80 -> #7C3AED
+   Success  #4C9A5B -> #16A34A   Warning #D9A73B -> #F59E0B/#D97706 (bg/text)
+   Danger   #8C5A3C/#C98C6E -> #DC2626         Dark-on-badge #0d2116/#3a2a05 -> #FFFFFF
+*/
+
+/* Page background: light blue-gray instead of the dark radial glow */
 div[style*="radial-gradient(1200px 600px at 10% -10%"] {
-  background-image: radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212b 55%),
-    radial-gradient(circle at 1px 1px, rgba(201, 165, 75, 0.06) 1.2px, transparent 0) !important;
-  background-size: auto, 28px 28px !important;
-  background-color: #14212b !important;
+  background-image: radial-gradient(circle at 1px 1px, rgba(79, 99, 234, 0.06) 1.2px, transparent 0) !important;
+  background-size: 28px 28px !important;
+  background-color: #f1f4fa !important;
 }
 
 * {
   transition: box-shadow 0.18s ease, border-color 0.15s ease, background-color 0.15s ease,
-    transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+    transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease, color 0.15s ease;
 }
 
 html, body, #root {
@@ -23,55 +34,84 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbars that match the theme instead of the browser default */
+/* Scrollbars matching the light theme */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f1922;
+  background: #edf1f8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #33475a;
+  background: #c3cbdb;
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a6178;
+  background: #a8b3c9;
 }
 
-/* Every card that uses the app's standard panel background gets a soft lift
-   instead of sitting flat on the page — one rule, applies everywhere. */
+/* ---- Backgrounds ---- */
+div[style*="#14212B"] { background-color: #f1f4fa !important; }
 div[style*="#1D2E3B"] {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.08), 0 1px 0 rgba(15, 23, 42, 0.02) inset;
 }
+div[style*="#0F1922"], div[style*="#0f1922"] { background-color: #edf1f8 !important; }
+div[style*="#2A1F1A"] { background-color: #fef2f2 !important; }
 
-/* Buttons feel clickable instead of static text */
+/* ---- Borders ---- */
+[style*="#2C4053"] { border-color: #e4e9f2 !important; }
+[style*="#33475A"], [style*="#33475a"] { border-color: #d8deea !important; }
+[style*="#3D5468"] { border-color: #cbd3e1 !important; }
+
+/* ---- Text ---- */
+[style*="#E9E1CC"] { color: #1f2937 !important; }
+[style*="#8FA5B3"] { color: #475569 !important; }
+[style*="#B9C3CB"] { color: #475569 !important; }
+[style*="#6B7D8C"] { color: #94a3b8 !important; }
+[style*="#5A6E7C"] { color: #94a3b8 !important; }
+
+/* ---- Accent (was gold) -> indigo blue ---- */
+[style*="#C9A54B"] { color: #4f63ea !important; background-color: #4f63ea !important; }
+button[style*="#C9A54B"] { box-shadow: 0 4px 14px rgba(79, 99, 234, 0.28) !important; }
+
+/* ---- Secondary accent (was teal) -> violet ---- */
+[style*="#5C8A80"] { color: #7c3aed !important; }
+
+/* ---- Status colors ---- */
+[style*="#4C9A5B"] { color: #16a34a !important; background-color: #16a34a !important; }
+[style*="#D9A73B"] { color: #d97706 !important; background-color: #f59e0b !important; }
+[style*="#8C5A3C"] { color: #dc2626 !important; border-color: #dc2626 !important; }
+[style*="#C98C6E"] { color: #dc2626 !important; }
+
+/* Dark text that sat on top of colored badges/dots now reads white on the
+   more saturated new status colors */
+[style*="#0d2116"] { color: #ffffff !important; }
+[style*="#3a2a05"] { color: #ffffff !important; }
+
+/* Buttons feel clickable; darken slightly on hover (works better on light bg
+   than the brighten-on-hover a dark theme needs) */
 button:not(:disabled) {
   cursor: pointer;
 }
 button:not(:disabled):hover {
-  filter: brightness(1.14);
+  filter: brightness(0.95);
 }
 button:not(:disabled):active {
   transform: scale(0.97);
 }
 
-/* A soft gold glow on focus instead of an abrupt border-color swap */
+/* A soft blue glow on focus instead of an abrupt border-color swap */
 input:focus,
 textarea:focus,
 select:focus {
-  box-shadow: 0 0 0 3px rgba(201, 165, 75, 0.18);
+  box-shadow: 0 0 0 3px rgba(79, 99, 234, 0.18);
 }
 
-/* Date/number picker affordances read better on a dark background */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.7);
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.4);
   cursor: pointer;
-}
-
-/* Primary gold action buttons get a matching warm glow */
-button[style*="#C9A54B"] {
-  box-shadow: 0 4px 14px rgba(201, 165, 75, 0.28);
 }
 
 /* Page-switch transition — the wrapper remounts (keyed by page) so this replays every time */
@@ -90,5 +130,5 @@ button[style*="#C9A54B"] {
 }
 
 ::selection {
-  background: rgba(201, 165, 75, 0.35);
+  background: rgba(79, 99, 234, 0.25);
 }
