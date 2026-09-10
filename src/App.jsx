@@ -132,7 +132,7 @@ function LoginScreen() {
         <button
           type="submit"
           disabled={busy}
-          style={{ width: "100%", background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: 10, fontWeight: 600 }}
+          style={{ width: "100%", background: "#C9A54B", color: "#FFFFFF", border: "none", borderRadius: 4, padding: 10, fontWeight: 600 }}
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
@@ -153,6 +153,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [sectionOpen, setSectionOpen] = useState({ inProgress: true, closed: true, uploaded: true, videosShorts: true });
   const [checklistOpen, setChecklistOpen] = useState({}); // topic id -> bool, defaults to collapsed
   const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
+  const [phasesSidebarOpen, setPhasesSidebarOpen] = useState(false);
   const toggleSection = (key) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
   useEffect(() => {
@@ -390,7 +391,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "24px 16px 60px 220px" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: `24px 16px 60px ${phasesSidebarOpen ? 220 : 60}px` }}>
       <style>{`
         * { box-sizing: border-box; }
         input, textarea, select { font-family:'Inter',sans-serif; background:#14212B; border:1px solid #33475A; color:#E9E1CC; border-radius:4px; padding:6px 8px; font-size:13px; outline:none; }
@@ -409,7 +410,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 11, color: "#8FA5B3" }}>{syncFlash}</div>
             <div style={{ fontSize: 11, color: saveState === "synced" ? "#4C9A5B" : "#6B7D8C", minWidth: 60, textAlign: "right" }}>{saveState}</div>
-            <button onClick={exportJSON} style={{ background: "transparent", border: "1px solid #3D5468", color: "#C9A54B", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Export JSON</button>
+            <button onClick={exportJSON} style={{ background: "transparent", border: "1px solid #3D5468", color: "#4F63EA", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Export JSON</button>
             <button onClick={triggerImport} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Restore</button>
             <button onClick={() => signOut(auth)} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "6px 10px", fontSize: 12 }}>Sign out</button>
             <input ref={fileInputRef} type="file" accept="application/json" onChange={importJSON} style={{ display: "none" }} />
@@ -624,7 +625,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
               <option value="uploaded">YouTube Status: Uploaded</option>
             </select>
           </div>
-          <button onClick={addTopic} style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "8px 14px", fontWeight: 600, fontSize: 13 }}>+ New Topic</button>
+          <button onClick={addTopic} style={{ background: "#C9A54B", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "8px 14px", fontWeight: 600, fontSize: 13 }}>+ New Topic</button>
         </div>
 
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, color: "#8FA5B3", marginBottom: 18, flexWrap: "wrap" }}>
@@ -635,23 +636,44 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           <span style={{ color: "#5A6E7C" }}>— tap a dot to cycle status</span>
         </div>
 
-        <div
-          style={{
-            position: "fixed", top: 90, left: 16, width: 186, zIndex: 30,
-            background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14,
-            maxHeight: "calc(100vh - 110px)", overflowY: "auto",
-          }}
-        >
-          <div style={{ fontSize: 10, letterSpacing: 1, color: "#5C8A80", marginBottom: 8 }}>PIPELINE PHASES</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, color: "#B9C3CB" }}>
-            {PHASES.map((p) => (
-              <div key={p.n} style={{ display: "flex", gap: 6 }}>
-                <span style={{ color: "#6B7D8C", flexShrink: 0 }}>{p.n}.</span>
-                <span>{p.label}</span>
-              </div>
-            ))}
+        {phasesSidebarOpen ? (
+          <div
+            style={{
+              position: "fixed", top: 90, left: 16, width: 186, zIndex: 30,
+              background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14,
+              maxHeight: "calc(100vh - 110px)", overflowY: "auto",
+            }}
+          >
+            <button
+              onClick={() => setPhasesSidebarOpen(false)}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: 8 }}
+            >
+              <span style={{ fontSize: 10, letterSpacing: 1, color: "#5C8A80" }}>PIPELINE PHASES</span>
+              <span style={{ fontSize: 12, color: "#6B7D8C" }}>▾</span>
+            </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, color: "#B9C3CB" }}>
+              {PHASES.map((p) => (
+                <div key={p.n} style={{ display: "flex", gap: 6 }}>
+                  <span style={{ color: "#6B7D8C", flexShrink: 0 }}>{p.n}.</span>
+                  <span>{p.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <button
+            onClick={() => setPhasesSidebarOpen(true)}
+            title="Show pipeline phases"
+            style={{
+              position: "fixed", top: 90, left: 16, zIndex: 30, width: 44,
+              background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: "10px 6px",
+              color: "#5C8A80", fontSize: 10, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+            }}
+          >
+            <span>▸</span>
+            <span style={{ writingMode: "vertical-rl", letterSpacing: 1 }}>PHASES</span>
+          </button>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {visibleTopics.length === 0 && <div style={{ color: "#6B7D8C", fontSize: 13, padding: "20px 0" }}>No topics for this account yet. Add one above.</div>}
@@ -661,7 +683,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 220px", border: "none", background: "transparent", padding: "2px 0" }} />
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button onClick={() => toggleClosed(t.id)} style={{ background: t.closed ? "#2C4053" : "transparent", border: "1px solid #3D5468", color: t.closed ? "#8FA5B3" : "#C9A54B", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>{t.closed ? "Reopen" : "Close"}</button>
-                  <button onClick={() => removeTopic(t.id)} style={{ background: "transparent", border: "1px solid #8C5A3C", color: "#C98C6E", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>Remove</button>
+                  <button onClick={() => removeTopic(t.id)} style={{ background: "transparent", border: "1px solid #DC2626", color: "#DC2626", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>Remove</button>
                 </div>
               </div>
 
@@ -675,7 +697,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                       style={{
                         fontSize: 11, borderRadius: 4, padding: "4px 9px", cursor: "pointer",
                         background: active ? "#C9A54B" : "transparent",
-                        color: active ? "#14212B" : "#8FA5B3",
+                        color: active ? "#FFFFFF" : "#8FA5B3",
                         border: `1px solid ${active ? "#C9A54B" : "#3D5468"}`,
                       }}
                     >
@@ -697,7 +719,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                           width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                           border: `2px solid ${status === "pending" ? "#33475A" : phaseColor(status)}`,
                           background: status === "pending" ? "transparent" : phaseColor(status),
-                          color: status === "done" || status === "skipped" ? "#14212B" : "#E9E1CC",
+                          color: status === "done" || status === "skipped" ? "#FFFFFF" : "#E9E1CC",
                           fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center",
                           cursor: "pointer", opacity: status === "skipped" ? 0.75 : 1,
                         }}
@@ -721,7 +743,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                   </button>
                   <button
                     onClick={() => updateTopic(t.id, { completed: true })}
-                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.completed ? "#C9A54B" : "transparent", color: t.completed ? "#14212B" : "#6B7D8C" }}
+                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.completed ? "#C9A54B" : "transparent", color: t.completed ? "#FFFFFF" : "#6B7D8C" }}
                   >
                     Yes
                   </button>
@@ -782,7 +804,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                   </button>
                   <button
                     onClick={() => { updateTopic(t.id, { uploaded: true }); setUploadModalTopicId(t.id); }}
-                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.uploaded ? "#4C9A5B" : "transparent", color: t.uploaded ? "#14212B" : "#6B7D8C" }}
+                    style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.uploaded ? "#4C9A5B" : "transparent", color: t.uploaded ? "#FFFFFF" : "#6B7D8C" }}
                   >
                     Uploaded
                   </button>
@@ -867,7 +889,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
               </div>
               <button
                 onClick={() => setUploadModalTopicId(null)}
-                style={{ width: "100%", background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: 10, fontWeight: 600, fontSize: 13 }}
+                style={{ width: "100%", background: "#C9A54B", color: "#FFFFFF", border: "none", borderRadius: 4, padding: 10, fontWeight: 600, fontSize: 13 }}
               >
                 Done
               </button>
@@ -875,6 +897,79 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function CountdownTimer() {
+  const [inputH, setInputH] = useState(0);
+  const [inputM, setInputM] = useState(25);
+  const [inputS, setInputS] = useState(0);
+  const [remaining, setRemaining] = useState(null); // seconds left, or null if not started
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        setRemaining((r) => {
+          if (r <= 1) {
+            clearInterval(intervalRef.current);
+            setRunning(false);
+            return 0;
+          }
+          return r - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running]);
+
+  const totalSet = inputH * 3600 + inputM * 60 + inputS;
+
+  const start = () => {
+    if (remaining === null || remaining === 0) setRemaining(totalSet);
+    if (totalSet > 0 || remaining > 0) setRunning(true);
+  };
+  const pause = () => setRunning(false);
+  const reset = () => {
+    setRunning(false);
+    setRemaining(null);
+  };
+
+  const display = remaining === null ? totalSet : remaining;
+  const hh = Math.floor(display / 3600);
+  const mm = Math.floor((display % 3600) / 60);
+  const ss = display % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+
+  return (
+    <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 20, maxWidth: 320, margin: "28px auto 0", textAlign: "center" }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80", marginBottom: 10 }}>TIMER</div>
+      <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 36, fontWeight: 600, marginBottom: 14, color: remaining === 0 ? "#D9A73B" : "#E9E1CC" }}>
+        {pad(hh)}:{pad(mm)}:{pad(ss)}
+      </div>
+      {remaining === null && (
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14 }}>
+          <input type="number" min="0" value={inputH} onChange={(e) => setInputH(Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 50, textAlign: "center" }} title="Hours" />
+          <input type="number" min="0" max="59" value={inputM} onChange={(e) => setInputM(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Minutes" />
+          <input type="number" min="0" max="59" value={inputS} onChange={(e) => setInputS(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Seconds" />
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        {!running ? (
+          <button onClick={start} style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "8px 16px", fontWeight: 600, fontSize: 13 }}>
+            {remaining && remaining > 0 ? "Resume" : "Start"}
+          </button>
+        ) : (
+          <button onClick={pause} style={{ background: "transparent", border: "1px solid #3D5468", color: "#E9E1CC", borderRadius: 4, padding: "8px 16px", fontSize: 13 }}>
+            Pause
+          </button>
+        )}
+        <button onClick={reset} style={{ background: "transparent", border: "1px solid #3D5468", color: "#8FA5B3", borderRadius: 4, padding: "8px 16px", fontSize: 13 }}>
+          Reset
+        </button>
+      </div>
     </div>
   );
 }
@@ -936,6 +1031,7 @@ function HomePage({ onNavigate }) {
             <div style={{ fontSize: 12, color: "#8FA5B3" }}>Paste your S# video prompts and get the full Phase 7 batch-processing master template, ready to paste.</div>
           </button>
         </div>
+        <CountdownTimer />
       </div>
     </div>
   );
@@ -971,9 +1067,9 @@ function NavShell({ page, onNavigate }) {
         }}
       >
         <div>
-          <div style={{ width: 16, height: 2, background: "#E9E1CC", marginBottom: 3 }} />
-          <div style={{ width: 16, height: 2, background: "#E9E1CC", marginBottom: 3 }} />
-          <div style={{ width: 16, height: 2, background: "#E9E1CC" }} />
+          <div style={{ width: 16, height: 2, background: "#1F2937", marginBottom: 3 }} />
+          <div style={{ width: 16, height: 2, background: "#1F2937", marginBottom: 3 }} />
+          <div style={{ width: 16, height: 2, background: "#1F2937" }} />
         </div>
       </button>
 
