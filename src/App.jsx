@@ -902,6 +902,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 }
 
 function CountdownTimer() {
+  const [inputD, setInputD] = useState(0);
   const [inputH, setInputH] = useState(0);
   const [inputM, setInputM] = useState(25);
   const [inputS, setInputS] = useState(0);
@@ -925,7 +926,7 @@ function CountdownTimer() {
     return () => clearInterval(intervalRef.current);
   }, [running]);
 
-  const totalSet = inputH * 3600 + inputM * 60 + inputS;
+  const totalSet = inputD * 86400 + inputH * 3600 + inputM * 60 + inputS;
 
   const start = () => {
     if (remaining === null || remaining === 0) setRemaining(totalSet);
@@ -938,22 +939,36 @@ function CountdownTimer() {
   };
 
   const display = remaining === null ? totalSet : remaining;
-  const hh = Math.floor(display / 3600);
+  const dd = Math.floor(display / 86400);
+  const hh = Math.floor((display % 86400) / 3600);
   const mm = Math.floor((display % 3600) / 60);
   const ss = display % 60;
   const pad = (n) => String(n).padStart(2, "0");
 
   return (
-    <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 20, maxWidth: 320, margin: "28px auto 0", textAlign: "center" }}>
+    <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 20, maxWidth: 380, margin: "0 auto 28px", textAlign: "center" }}>
       <div style={{ fontSize: 11, letterSpacing: 1.5, color: "#5C8A80", marginBottom: 10 }}>TIMER</div>
-      <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 36, fontWeight: 600, marginBottom: 14, color: remaining === 0 ? "#D9A73B" : "#E9E1CC" }}>
-        {pad(hh)}:{pad(mm)}:{pad(ss)}
+      <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 600, marginBottom: 14, color: remaining === 0 ? "#D9A73B" : "#E9E1CC" }}>
+        {dd}d {pad(hh)}:{pad(mm)}:{pad(ss)}
       </div>
       {remaining === null && (
-        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14 }}>
-          <input type="number" min="0" value={inputH} onChange={(e) => setInputH(Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 50, textAlign: "center" }} title="Hours" />
-          <input type="number" min="0" max="59" value={inputM} onChange={(e) => setInputM(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Minutes" />
-          <input type="number" min="0" max="59" value={inputS} onChange={(e) => setInputS(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Seconds" />
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 14, flexWrap: "wrap" }}>
+          <div>
+            <input type="number" min="0" value={inputD} onChange={(e) => setInputD(Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 50, textAlign: "center" }} title="Days" />
+            <div style={{ fontSize: 9, color: "#6B7D8C", marginTop: 2 }}>days</div>
+          </div>
+          <div>
+            <input type="number" min="0" value={inputH} onChange={(e) => setInputH(Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 50, textAlign: "center" }} title="Hours" />
+            <div style={{ fontSize: 9, color: "#6B7D8C", marginTop: 2 }}>hrs</div>
+          </div>
+          <div>
+            <input type="number" min="0" max="59" value={inputM} onChange={(e) => setInputM(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Minutes" />
+            <div style={{ fontSize: 9, color: "#6B7D8C", marginTop: 2 }}>min</div>
+          </div>
+          <div>
+            <input type="number" min="0" max="59" value={inputS} onChange={(e) => setInputS(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))} style={{ width: 50, textAlign: "center" }} title="Seconds" />
+            <div style={{ fontSize: 9, color: "#6B7D8C", marginTop: 2 }}>sec</div>
+          </div>
         </div>
       )}
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -980,7 +995,8 @@ function HomePage({ onNavigate }) {
       <div style={{ maxWidth: 640, width: "100%", textAlign: "center" }}>
         <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 8 }}>HISTORY YOUTUBE CONTENT</div>
         <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 600, margin: "0 0 8px" }}>Production Home</h1>
-        <p style={{ color: "#8FA5B3", fontSize: 14, marginBottom: 32 }}>Pick a workspace to jump into.</p>
+        <p style={{ color: "#8FA5B3", fontSize: 14, marginBottom: 24 }}>Pick a workspace to jump into.</p>
+        <CountdownTimer />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
           <button
             onClick={() => onNavigate("ledger")}
@@ -1031,7 +1047,6 @@ function HomePage({ onNavigate }) {
             <div style={{ fontSize: 12, color: "#8FA5B3" }}>Paste your S# video prompts and get the full Phase 7 batch-processing master template, ready to paste.</div>
           </button>
         </div>
-        <CountdownTimer />
       </div>
     </div>
   );
