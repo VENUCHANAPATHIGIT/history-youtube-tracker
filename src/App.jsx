@@ -11,36 +11,34 @@ import logoUrl from "./assets/logo.png";
 
 const PHASES = [
   { n: 1, label: "Topic Generator" },
-  { n: 2, label: "Script / Narration" },
-  { n: 3, label: "Host/Character Design" },
-  { n: 4, label: "Environment Prompts" },
-  { n: 5, label: "Scene Image Prompts" },
-  { n: 6, label: "Image-to-Video Prompts" },
-  { n: 7, label: "Metadata Package" },
-  { n: 8, label: "Video Editing" },
-  { n: 9, label: "Upload Status" },
-  { n: 10, label: "YouTube" },
+  { n: 2, label: "Script generation" },
+  { n: 3, label: "Environment Prompts" },
+  { n: 4, label: "Scene Image Prompts" },
+  { n: 5, label: "Image-to-Video Prompts" },
+  { n: 6, label: "Video Editing" },
+  { n: 7, label: "Metadata" },
+  { n: 8, label: "Thumbnail" },
 ];
 
-const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending", 10: "pending" });
+const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "pending", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending" });
 
 const seedState = () => {
   const now = Date.now();
-  const mk = (p) => Object.assign(emptyPhases(), p);
+  const mk = (p) => Object.assign({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending", 10: "pending" }, p); // old 10-phase shape; migrateTopics converts it
   return {
     accounts: [
       { id: "a1", name: "Account 1", note: "" },
       { id: "a2", name: "Account 2", note: "" },
       { id: "a3", name: "Account 3", note: "" },
     ],
-    topics: [
+    topics: migrateTopics([
       { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
       { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
       { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
       { id: "t4", name: "Antikythera Mechanism", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
       { id: "t5", name: "Seven Wonders of the Modern World", accounts: ["a2"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "30-scene script came in short of runtime target.", updated: now },
       { id: "t6", name: "Bermuda Triangle", accounts: ["a3"], phases: mk({ 1: "done", 2: "active" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: now },
-    ],
+    ]),
   };
 };
 
@@ -83,6 +81,13 @@ function migrateTopics(topics) {
     if (next.ytMetadataCreated === undefined) next.ytMetadataCreated = false;
     if (next.ytThumbnailCreated === undefined) next.ytThumbnailCreated = false;
     if (next.scheduleTime === undefined) next.scheduleTime = "";
+    // One-time remap from the old 10-phase list to the new 8-phase list, keeping progress.
+    if (next.phaseSchema !== 2) {
+      const old = next.phases || {};
+      const g = (n) => old[n] || "pending";
+      next.phases = { 1: g(1), 2: g(2), 3: g(4), 4: g(5), 5: g(6), 6: g(8), 7: g(7), 8: next.ytThumbnailCreated ? "done" : "pending" };
+      next.phaseSchema = 2;
+    }
     return next;
   });
 }
@@ -150,11 +155,9 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [filterTopic, setFilterTopic] = useState("all");
   const [filterCompleted, setFilterCompleted] = useState("all");
   const [filterUploaded, setFilterUploaded] = useState("all");
-  const [sectionOpen, setSectionOpen] = useState({ inProgress: true, closed: true, uploaded: true, videosShorts: true });
   const [checklistOpen, setChecklistOpen] = useState({}); // topic id -> bool, defaults to collapsed
   const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
   const [phasesSidebarOpen, setPhasesSidebarOpen] = useState(false);
-  const toggleSection = (key) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
   useEffect(() => {
     if (focusTopicId) {
@@ -245,7 +248,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), phaseSchema: 2, source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -310,6 +313,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
       try {
         const parsed = JSON.parse(reader.result);
         if (!parsed.accounts || !parsed.topics) throw new Error("bad shape");
+        parsed.topics = migrateTopics(parsed.topics);
         setState(parsed);
       } catch {
         alert("That file doesn't look like a valid backup — restore cancelled.");
@@ -356,7 +360,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   // ---- Summary stats ----
   const currentPhaseOf = (topic) => {
     for (const p of PHASES) {
-      const status = topic.phases[p.n] || (p.n === 3 ? "skipped" : "pending");
+      const status = topic.phases[p.n] || "pending";
       if (status === "pending" || status === "active") return p;
     }
     return null; // all phases done/skipped = fully complete
@@ -373,7 +377,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   let totalDots = 0;
   state.topics.forEach((t) => {
     PHASES.forEach((p) => {
-      const status = t.phases[p.n] || (p.n === 3 ? "skipped" : "pending");
+      const status = t.phases[p.n] || "pending";
       totalDots++;
       if (status === "done" || status === "skipped") resolvedDots++;
     });
@@ -383,10 +387,6 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
   const doneCountOf = (t) => PHASES.filter((p) => t.phases[p.n] === "done").length;
   const isFullyComplete = (t) => currentPhaseOf(t) === null;
-  const inProgressTopics = state.topics.filter((t) => !t.closed);
-  const closedTopics = state.topics.filter((t) => t.closed);
-  const uploadedTopics = state.topics.filter((t) => t.uploaded);
-  const ytShortTopics = state.topics.filter((t) => t.ytShortCreated);
   const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
   const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
 
@@ -470,121 +470,6 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
               })}
             </div>
           </div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 24 }}>
-          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <button
-              onClick={() => toggleSection("inProgress")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.inProgress ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#D9A73B" }}>{sectionOpen.inProgress ? "▾" : "▸"} IN PROGRESS</div>
-              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{inProgressTopics.length}</div>
-            </button>
-            {sectionOpen.inProgress && (
-              <>
-                {inProgressTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing mid-flight right now.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {inProgressTopics.map((t) => {
-                    const cp = currentPhaseOf(t);
-                    return (
-                      <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
-                        <div style={{ color: "#E9E1CC" }}>{t.name}</div>
-                        <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-                          {accountNames(t.accounts)} · {doneCountOf(t)}/{PHASES.length} done{cp ? ` · at ${cp.label}` : ""}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <button
-              onClick={() => toggleSection("closed")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.closed ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#8FA5B3" }}>{sectionOpen.closed ? "▾" : "▸"} CLOSED</div>
-              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{closedTopics.length}</div>
-            </button>
-            {sectionOpen.closed && (
-              <>
-                {closedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics closed yet.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {closedTopics.map((t) => (
-                    <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>
-                      <div style={{ color: "#8FA5B3" }}>{t.name}</div>
-                      <div style={{ color: "#6B7D8C", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>{accountNames(t.accounts)}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14 }}>
-            <button
-              onClick={() => toggleSection("uploaded")}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.uploaded ? 10 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#4C9A5B" }}>{sectionOpen.uploaded ? "▾" : "▸"} UPLOADED</div>
-              <div style={{ fontSize: 11, color: "#6B7D8C" }}>{uploadedTopics.length}</div>
-            </button>
-            {sectionOpen.uploaded && (
-              <>
-                {uploadedTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>Nothing uploaded to YouTube yet.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {uploadedTopics.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setUploadModalTopicId(t.id)}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, background: "transparent", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: "#2C4053", width: "100%", textAlign: "left", cursor: "pointer", padding: 0, paddingBottom: 6 }}
-                    >
-                      <div style={{ color: "#E9E1CC" }}>{t.name}</div>
-                      <div style={{ color: "#8FA5B3", fontSize: 11, textAlign: "right", flexShrink: 0, marginLeft: 8 }}>
-                        {t.uploadDetails?.publishDate ? t.uploadDetails.publishDate : accountNames(t.accounts)}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 14, marginBottom: 24 }}>
-          <button
-            onClick={() => toggleSection("videosShorts")}
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sectionOpen.videosShorts ? 12 : 0, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#C9A54B" }}>{sectionOpen.videosShorts ? "▾" : "▸"} VIDEOS & SHORTS</div>
-            <div style={{ fontSize: 11, color: "#6B7D8C" }}>{state.topics.length} videos · {ytShortTopics.length} shorts</div>
-          </button>
-          {sectionOpen.videosShorts && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>LONG VIDEOS ({state.topics.length})</div>
-                {state.topics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics yet.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {state.topics.map((t) => (
-                    <div key={t.id} style={{ fontSize: 12, color: "#E9E1CC", borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>{t.name}</div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>SHORT VIDEOS ({state.topics.length})</div>
-                <div style={{ fontSize: 10, color: "#5A6E7C", marginBottom: 8 }}>green = short created · white = not created yet</div>
-                {state.topics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics yet.</div>}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {state.topics.map((t) => (
-                    <div key={t.id} style={{ fontSize: 12, color: t.ytShortCreated ? "#4C9A5B" : "#E9E1CC", borderBottom: "1px solid #2C4053", paddingBottom: 6 }}>{t.name}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
@@ -709,7 +594,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
                 {PHASES.map((p, i) => {
-                  const status = t.phases[p.n] || (p.n === 3 ? "skipped" : "pending");
+                  const status = t.phases[p.n] || "pending";
                   return (
                     <React.Fragment key={p.n}>
                       <button
