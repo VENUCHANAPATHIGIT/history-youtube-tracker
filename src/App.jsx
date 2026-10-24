@@ -158,6 +158,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [checklistOpen, setChecklistOpen] = useState({}); // topic id -> bool, defaults to collapsed
   const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
   const [phasesSidebarOpen, setPhasesSidebarOpen] = useState(false);
+  const [accountsOpen, setAccountsOpen] = useState(true);
 
   useEffect(() => {
     if (focusTopicId) {
@@ -401,7 +402,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
         ::placeholder { color:#6B7D8C; }
       `}</style>
 
-      <div style={{ maxWidth: 880, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <div style={{ borderBottom: "1px solid #33475A", paddingBottom: 18, marginBottom: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div>
             <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>HISTORY YOUTUBE CONTENT · PRODUCTION LEDGER</div>
@@ -472,7 +473,16 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 24 }}>
+        <div style={{ marginBottom: 24 }}>
+          <button
+            onClick={() => setAccountsOpen((o) => !o)}
+            style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", cursor: "pointer", padding: 0, marginBottom: accountsOpen ? 10 : 0 }}
+          >
+            <span style={{ fontSize: 11, letterSpacing: 1, color: "#5C8A80" }}>{accountsOpen ? "▾" : "▸"} ACCOUNTS</span>
+            <span style={{ fontSize: 11, color: "#6B7D8C" }}>({state.accounts.length})</span>
+          </button>
+          {accountsOpen && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
           {state.accounts.map((a) => (
             <div key={a.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 6, padding: 12, position: "relative" }}>
               {state.accounts.length > 1 && (
@@ -484,6 +494,8 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
             </div>
           ))}
           <button onClick={addAccount} style={{ background: "transparent", border: "1px dashed #3D5468", borderRadius: 6, color: "#8FA5B3", fontSize: 13, minHeight: 84, display: "flex", alignItems: "center", justifyContent: "center" }}>+ Add account</button>
+        </div>
+          )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 8, flexWrap: "wrap" }}>
@@ -560,12 +572,12 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           </button>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {visibleTopics.length === 0 && <div style={{ color: "#6B7D8C", fontSize: 13, padding: "20px 0" }}>No topics for this account yet. Add one above.</div>}
+        <div className="topics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
+          {visibleTopics.length === 0 && <div style={{ gridColumn: "1 / -1", color: "#6B7D8C", fontSize: 13, padding: "20px 0" }}>No topics for this account yet. Add one above.</div>}
           {visibleTopics.map((t) => (
-            <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1 }}>
+            <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1, minWidth: 0, overflow: "hidden", overflowWrap: "anywhere" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-                <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 220px", border: "none", background: "transparent", padding: "2px 0" }} />
+                <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 100px", minWidth: 0, border: "none", background: "transparent", padding: "2px 0" }} />
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button onClick={() => toggleClosed(t.id)} style={{ background: t.closed ? "#2C4053" : "transparent", border: "1px solid #3D5468", color: t.closed ? "#8FA5B3" : "#C9A54B", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>{t.closed ? "Reopen" : "Close"}</button>
                   <button onClick={() => removeTopic(t.id)} style={{ background: "transparent", border: "1px solid #DC2626", color: "#DC2626", borderRadius: 4, padding: "5px 9px", fontSize: 12 }}>Remove</button>
@@ -601,7 +613,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                         onClick={() => togglePhase(t, p.n)}
                         title={`${p.label} — ${status}`}
                         style={{
-                          width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                          width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
                           border: `2px solid ${status === "pending" ? "#33475A" : phaseColor(status)}`,
                           background: status === "pending" ? "transparent" : phaseColor(status),
                           color: status === "done" || status === "skipped" ? "#FFFFFF" : "#E9E1CC",
@@ -611,13 +623,13 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                       >
                         {status === "skipped" ? "×" : p.n}
                       </button>
-                      {i < PHASES.length - 1 && <div style={{ width: 18, height: 2, background: "#2C4053", flexShrink: 0 }} />}
+                      {i < PHASES.length - 1 && <div style={{ flex: 1, minWidth: 3, height: 2, background: "#2C4053" }} />}
                     </React.Fragment>
                   );
                 })}
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "#6B7D8C" }} title="Yes makes this topic selectable in the Upload Schedule page's add-topic picker">TOPIC COMPLETED</div>
                 <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
                   <button
@@ -678,7 +690,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 )}
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "#6B7D8C" }}>YOUTUBE STATUS</div>
                 <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
                   <button

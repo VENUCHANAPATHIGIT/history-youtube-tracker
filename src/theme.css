@@ -92,3 +92,15 @@ button[style*="#C9A54B"] {
 ::selection {
   background: rgba(201, 165, 75, 0.35);
 }
+
+/* Topics tile grid: 3 across on desktop, fewer on narrower screens */
+@media (max-width: 1000px) {
+  .topics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 640px) {
+  .topics-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
