@@ -41,7 +41,8 @@ body {
 
 /* Every card that uses the app's standard panel background gets a soft lift
    instead of sitting flat on the page — one rule, applies everywhere. */
-div[style*="#1D2E3B"] {
+div[style*="#1D2E3B" i],
+div[style*="rgb(29, 46, 59)"] {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
@@ -70,7 +71,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* Primary gold action buttons get a matching warm glow */
-button[style*="#C9A54B"] {
+button[style*="#C9A54B" i],
+button[style*="rgb(201, 165, 75)"] {
   box-shadow: 0 4px 14px rgba(201, 165, 75, 0.28);
 }
 
@@ -103,4 +105,206 @@ button[style*="#C9A54B"] {
   .topics-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+}
+
+/* ============================================================
+   Pro polish — home tiles, hover highlights, headings, accents
+   ============================================================ */
+
+/* Thin gold accent line across the very top of every page */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #c9a54b 30%, #e6c872 50%, #c9a54b 70%, transparent);
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Page titles get a soft parchment-to-gold gradient */
+h1 {
+  display: inline-block;
+  background: linear-gradient(100deg, #f1ead6 0%, #e9e1cc 45%, #c9a54b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.2px;
+}
+
+/* ---- Home: 4-across tile grid ---- */
+.home-eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  color: #5c8a80;
+  border: 1px solid rgba(92, 138, 128, 0.35);
+  border-radius: 999px;
+  padding: 5px 14px;
+  margin-bottom: 16px;
+}
+.home-section-label {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #6b7d8c;
+  margin: 8px 2px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.home-section-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, #2c4053, transparent);
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1000px) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+button.home-tile {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 210px;
+  padding: 22px;
+  text-align: left;
+  color: #e9e1cc;
+  background: linear-gradient(160deg, #213446 0%, #1d2e3b 60%);
+  border: 1px solid #2c4053;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+  animation: tileIn 0.5s ease both;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+button.home-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #c9a54b, #e6c872);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+button.home-tile:not(:disabled):hover {
+  filter: none;
+  transform: translateY(-6px);
+  border-color: rgba(201, 165, 75, 0.7);
+  background: linear-gradient(160deg, #27405a 0%, #1f3346 60%);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 165, 75, 0.35), 0 0 30px rgba(201, 165, 75, 0.14);
+}
+button.home-tile:hover::before {
+  opacity: 1;
+}
+.home-tile-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #c9a54b;
+  background: rgba(201, 165, 75, 0.1);
+  border: 1px solid rgba(201, 165, 75, 0.25);
+  transition: background 0.22s ease, color 0.22s ease, transform 0.22s ease;
+}
+button.home-tile:hover .home-tile-icon {
+  background: #c9a54b;
+  color: #14212b;
+  transform: scale(1.08) rotate(-4deg);
+}
+.home-tile-tag {
+  font-size: 10px;
+  letter-spacing: 1.8px;
+  color: #5c8a80;
+  margin-top: 4px;
+}
+.home-tile-title {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.home-tile-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8fa5b3;
+}
+.home-tile-cta {
+  margin-top: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c9a54b;
+  opacity: 0.55;
+  transition: opacity 0.22s ease;
+}
+.home-tile-cta span {
+  display: inline-block;
+  transition: transform 0.22s ease;
+}
+button.home-tile:hover .home-tile-cta {
+  opacity: 1;
+}
+button.home-tile:hover .home-tile-cta span {
+  transform: translateX(5px);
+}
+@keyframes tileIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Cards across every sub-app: gold edge on hover ---- */
+div[style*="#1D2E3B" i]:hover,
+div[style*="rgb(29, 46, 59)"]:hover {
+  border-color: rgba(201, 165, 75, 0.4) !important;
+}
+.topic-tile {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.topic-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(201, 165, 75, 0.3) !important;
+}
+.detail-card:hover {
+  border-color: rgba(201, 165, 75, 0.5) !important;
+}
+
+/* Tracker rows and stat buttons light up on hover */
+button.phase-row:hover,
+button.stat-btn:hover {
+  background: rgba(201, 165, 75, 0.1) !important;
+  filter: none;
+}
+
+/* Inputs react to hover too */
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: #4a6178;
 }

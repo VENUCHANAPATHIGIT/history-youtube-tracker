@@ -159,6 +159,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
   const [phasesSidebarOpen, setPhasesSidebarOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(true);
+  const [trackerDetail, setTrackerDetail] = useState(null); // {type:"phase",n} | {type:"all"|"done"|"progress"}
 
   useEffect(() => {
     if (focusTopicId) {
@@ -366,17 +367,19 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     }
     return null; // all phases done/skipped = fully complete
   };
+  // The tracker only covers topics that are NOT marked "Topic Completed".
+  const openTopics = state.topics.filter((t) => !t.completed);
   const phaseCounts = {};
   PHASES.forEach((p) => (phaseCounts[p.n] = 0));
-  let completedTopics = 0;
-  state.topics.forEach((t) => {
+  let allPhasesDone = 0;
+  openTopics.forEach((t) => {
     const cp = currentPhaseOf(t);
     if (cp) phaseCounts[cp.n]++;
-    else completedTopics++;
+    else allPhasesDone++;
   });
   let resolvedDots = 0;
   let totalDots = 0;
-  state.topics.forEach((t) => {
+  openTopics.forEach((t) => {
     PHASES.forEach((p) => {
       const status = t.phases[p.n] || "pending";
       totalDots++;
@@ -384,12 +387,44 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     });
   });
   const overallPct = totalDots ? Math.round((resolvedDots / totalDots) * 100) : 0;
-  const totalTopics = state.topics.length;
+  const totalTopics = openTopics.length;
 
   const doneCountOf = (t) => PHASES.filter((p) => t.phases[p.n] === "done").length;
   const isFullyComplete = (t) => currentPhaseOf(t) === null;
   const accountName = (id) => state.accounts.find((a) => a.id === id)?.name || "—";
   const accountNames = (ids) => (ids && ids.length ? ids.map(accountName).join(", ") : "—");
+
+  // Click-through details for the tracker
+  const toggleDetail = (d) =>
+    setTrackerDetail((cur) => (cur && cur.type === d.type && cur.n === d.n ? null : d));
+  const detailTopics = !trackerDetail
+    ? []
+    : openTopics.filter((t) => {
+        const cp = currentPhaseOf(t);
+        if (trackerDetail.type === "phase") return cp && cp.n === trackerDetail.n;
+        if (trackerDetail.type === "done") return !cp;
+        if (trackerDetail.type === "progress") return !!cp;
+        return true;
+      });
+  const detailTitle = !trackerDetail
+    ? ""
+    : trackerDetail.type === "phase"
+    ? `Open topics now at: ${trackerDetail.n}. ${PHASES.find((p) => p.n === trackerDetail.n)?.label}`
+    : trackerDetail.type === "done"
+    ? "Open topics with every phase done"
+    : trackerDetail.type === "progress"
+    ? "Open topics still in progress"
+    : "All open topics (not marked completed)";
+  const chip = (label, on) => (
+    <span key={label} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 999, border: `1px solid ${on ? "#4C9A5B" : "#33475A"}`, color: on ? "#4C9A5B" : "#6B7D8C" }}>{label}</span>
+  );
+  const openTopicCard = (id) => {
+    setFilterAccount("all");
+    setFilterCompleted("all");
+    setFilterUploaded("all");
+    setFilterTopic(id);
+    setTimeout(() => document.getElementById("topics-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: `24px 16px 60px ${phasesSidebarOpen ? 220 : 60}px` }}>
@@ -418,7 +453,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "center", background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, marginBottom: 24, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "center", background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div
               style={{
@@ -437,40 +472,106 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 <div style={{ fontSize: 8, color: "#8FA5B3" }}>complete</div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 18 }}>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>{totalTopics}</div>
-                <div style={{ fontSize: 10, color: "#8FA5B3" }}>total topics</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 600, color: "#4C9A5B" }}>{completedTopics}</div>
-                <div style={{ fontSize: 10, color: "#8FA5B3" }}>fully done</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 600, color: "#D9A73B" }}>{totalTopics - completedTopics}</div>
-                <div style={{ fontSize: 10, color: "#8FA5B3" }}>still in progress</div>
-              </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { type: "all", value: totalTopics, label: "open topics", color: "#E9E1CC" },
+                { type: "done", value: allPhasesDone, label: "all phases done", color: "#4C9A5B" },
+                { type: "progress", value: totalTopics - allPhasesDone, label: "still in progress", color: "#D9A73B" },
+              ].map((st) => {
+                const active = trackerDetail && trackerDetail.type === st.type;
+                return (
+                  <button
+                    key={st.type}
+                    className="stat-btn"
+                    onClick={() => toggleDetail({ type: st.type })}
+                    title="Click to see these topics"
+                    style={{ background: active ? "rgba(201,165,75,0.12)" : "transparent", border: `1px solid ${active ? "rgba(201,165,75,0.6)" : "transparent"}`, borderRadius: 8, padding: "6px 10px", textAlign: "left", cursor: "pointer", color: "inherit" }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 600, color: st.color }}>{st.value}</div>
+                    <div style={{ fontSize: 10, color: "#8FA5B3" }}>{st.label}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div>
-            <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 8, letterSpacing: 1 }}>TOPICS BY CURRENT PHASE</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 8, letterSpacing: 1 }}>
+              OPEN TOPICS BY CURRENT PHASE <span style={{ color: "#5A6E7C", letterSpacing: 0 }}>— click a row for details</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {PHASES.map((p) => {
                 const count = phaseCounts[p.n];
                 const pct = totalTopics ? (count / totalTopics) * 100 : 0;
+                const active = trackerDetail && trackerDetail.type === "phase" && trackerDetail.n === p.n;
                 return (
-                  <div key={p.n} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    key={p.n}
+                    className="phase-row"
+                    onClick={() => toggleDetail({ type: "phase", n: p.n })}
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: active ? "rgba(201,165,75,0.12)" : "transparent", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", textAlign: "left", color: "inherit" }}
+                  >
                     <div style={{ width: 130, fontSize: 11, color: "#B9C3CB", flexShrink: 0 }}>{p.n}. {p.label}</div>
                     <div style={{ flex: 1, height: 8, background: "#14212B", borderRadius: 4, overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: "#D9A73B" }} />
                     </div>
                     <div style={{ width: 18, fontSize: 11, color: "#8FA5B3", textAlign: "right" }}>{count}</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
+
+          {trackerDetail && (
+            <div style={{ gridColumn: "1 / -1", borderTop: "1px solid #2C4053", paddingTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#C9A54B" }}>
+                  {detailTitle} <span style={{ color: "#6B7D8C", fontWeight: 400 }}>({detailTopics.length})</span>
+                </div>
+                <button onClick={() => setTrackerDetail(null)} style={{ background: "transparent", border: "none", color: "#8FA5B3", fontSize: 16, cursor: "pointer", lineHeight: 1 }} title="Close details">×</button>
+              </div>
+              {detailTopics.length === 0 && <div style={{ fontSize: 12, color: "#6B7D8C" }}>No topics here right now.</div>}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
+                {detailTopics.map((t) => {
+                  const cp = currentPhaseOf(t);
+                  const done = doneCountOf(t);
+                  return (
+                    <div key={t.id} className="detail-card" style={{ background: "#14212B", border: "1px solid #2C4053", borderRadius: 8, padding: 12, minWidth: 0, overflowWrap: "anywhere" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{t.name}</div>
+                      <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8 }}>{accountNames(t.accounts)}</div>
+                      <div style={{ fontSize: 11, color: "#B9C3CB", marginBottom: 6 }}>
+                        Now at: <span style={{ color: "#D9A73B" }}>{cp ? `${cp.n}. ${cp.label}` : "all phases done"}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {PHASES.map((p) => {
+                            const st = t.phases[p.n] || "pending";
+                            return <span key={p.n} title={`${p.label} — ${st}`} style={{ width: 9, height: 9, borderRadius: "50%", background: phaseColor(st), border: `1px solid ${st === "pending" ? "#33475A" : phaseColor(st)}` }} />;
+                          })}
+                        </div>
+                        <span style={{ fontSize: 10, color: "#6B7D8C" }}>{done}/{PHASES.length} done</span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
+                        {chip(t.uploaded ? "Uploaded" : "Not uploaded", !!t.uploaded)}
+                        {chip("Short", !!t.ytShortCreated)}
+                        {chip("Metadata", !!t.ytMetadataCreated)}
+                        {chip("Thumbnail", !!t.ytThumbnailCreated)}
+                      </div>
+                      {t.notes && (
+                        <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{t.notes}</div>
+                      )}
+                      <button
+                        onClick={() => openTopicCard(t.id)}
+                        style={{ background: "transparent", border: "1px solid #3D5468", color: "#E9E1CC", borderRadius: 4, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}
+                      >
+                        Open topic card →
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: 24 }}>
@@ -572,10 +673,10 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           </button>
         )}
 
-        <div className="topics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
+        <div id="topics-grid" className="topics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 14 }}>
           {visibleTopics.length === 0 && <div style={{ gridColumn: "1 / -1", color: "#6B7D8C", fontSize: 13, padding: "20px 0" }}>No topics for this account yet. Add one above.</div>}
           {visibleTopics.map((t) => (
-            <div key={t.id} style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1, minWidth: 0, overflow: "hidden", overflowWrap: "anywhere" }}>
+            <div key={t.id} className="topic-tile" style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 8, padding: 16, opacity: t.closed ? 0.55 : 1, minWidth: 0, overflow: "hidden", overflowWrap: "anywhere" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
                 <input value={t.name} onChange={(e) => updateTopic(t.id, { name: e.target.value })} style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 17, fontWeight: 600, flex: "1 1 100px", minWidth: 0, border: "none", background: "transparent", padding: "2px 0" }} />
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -886,64 +987,52 @@ function CountdownTimer() {
   );
 }
 
+function AppIcon({ name }) {
+  const paths = {
+    ledger: (<><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5z" /><path d="M8 7h6M8 11h6" /></>),
+    flow: (<><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>),
+    schedule: (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>),
+    envgen: (<><path d="M3 20l6-10 4 6 3-4 5 8H3z" /><circle cx="17" cy="7" r="2" /></>),
+    scenegen: (<><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 9" /></>),
+    videogen: (<><rect x="3" y="5" width="14" height="14" rx="2" /><path d="M17 10l4-2v8l-4-2" /></>),
+  };
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      {paths[name]}
+    </svg>
+  );
+}
+
+const HOME_APPS = [
+  { id: "ledger", tag: "TRACK", title: "Production Ledger", desc: "Track topics, accounts, and pipeline phases end to end." },
+  { id: "flow", tag: "PLAN", title: "Flow Credits Planner", desc: "Split a script's scenes across your Google Flow accounts and track credits." },
+  { id: "schedule", tag: "PUBLISH", title: "Upload Schedule", desc: "Calendar and list of planned and actual YouTube upload dates." },
+  { id: "envgen", tag: "GENERATE", title: "Environment Prompt Generator", desc: "Fill in environment name/prompt pairs and get the full Flow master template." },
+  { id: "scenegen", tag: "GENERATE", title: "Scene Image Prompt Generator", desc: "Paste your scene prompts and get the batch-processing master template." },
+  { id: "videogen", tag: "GENERATE", title: "Image-to-Video Prompt Generator", desc: "Paste your S# video prompts and get the Phase 7 master template." },
+];
+
 function HomePage({ onNavigate }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" }}>
-      <div style={{ maxWidth: 640, width: "100%", textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 8 }}>HISTORY YOUTUBE CONTENT</div>
-        <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 32, fontWeight: 600, margin: "0 0 8px" }}>Production Home</h1>
-        <p style={{ color: "#8FA5B3", fontSize: 14, marginBottom: 24 }}>Pick a workspace to jump into.</p>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(1200px 600px at 10% -10%, #1a2c3a 0%, #14212B 55%), #14212B", color: "#E9E1CC", fontFamily: "'Inter', sans-serif", padding: "72px 24px 48px" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", textAlign: "center" }}>
+        <div className="home-eyebrow">HISTORY YOUTUBE CONTENT</div>
+        <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 40, fontWeight: 600, margin: "0 0 10px" }}>Production Home</h1>
+        <p style={{ color: "#8FA5B3", fontSize: 14, margin: "0 0 28px" }}>Pick a workspace to jump into.</p>
         <CountdownTimer />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-          <button
-            onClick={() => onNavigate("ledger")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Production Ledger</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Track topics, accounts, and pipeline phases end to end.</div>
-          </button>
-          <button
-            onClick={() => onNavigate("flow")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Flow Credits Planner</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Split a script's scenes across your Google Flow accounts and track credits.</div>
-          </button>
-          <button
-            onClick={() => onNavigate("schedule")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Upload Schedule</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Calendar and list of planned and actual YouTube upload dates.</div>
-          </button>
-          <button
-            onClick={() => onNavigate("envgen")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Environment Prompt Generator</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Fill in environment name/prompt pairs and get the full Google Flow master template, ready to paste.</div>
-          </button>
-          <button
-            onClick={() => onNavigate("scenegen")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Scene Image Prompt Generator</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Paste your scene prompts and get the full batch-processing master template, ready to paste.</div>
-          </button>
-          <button
-            onClick={() => onNavigate("videogen")}
-            style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 24, textAlign: "left", cursor: "pointer" }}
-          >
-            <div style={{ fontSize: 12, color: "#5C8A80", marginBottom: 6 }}>WORKSPACE</div>
-            <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 19, fontWeight: 600, marginBottom: 6, color: "#E9E1CC" }}>Image-to-Video Prompt Generator</div>
-            <div style={{ fontSize: 12, color: "#8FA5B3" }}>Paste your S# video prompts and get the full Phase 7 batch-processing master template, ready to paste.</div>
-          </button>
+        <div className="home-section-label">WORKSPACES</div>
+        <div className="home-grid">
+          {HOME_APPS.map((a, i) => (
+            <button key={a.id} className="home-tile" onClick={() => onNavigate(a.id)} style={{ animationDelay: `${i * 70}ms` }}>
+              <div className="home-tile-icon"><AppIcon name={a.id} /></div>
+              <div className="home-tile-tag">{a.tag}</div>
+              <div className="home-tile-title">{a.title}</div>
+              <div className="home-tile-desc">{a.desc}</div>
+              <div className="home-tile-cta">Open <span>→</span></div>
+            </button>
+          ))}
         </div>
+        <div style={{ marginTop: 44, fontSize: 11, color: "#5A6E7C", letterSpacing: 1 }}>CHARITRIKA · చరిత్రిక</div>
       </div>
     </div>
   );
