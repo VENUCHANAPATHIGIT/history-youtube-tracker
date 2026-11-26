@@ -22,7 +22,33 @@ const PHASES = [
 
 const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "pending", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending" });
 
-const seedState = () => {
+// The Animation Channel Content is a clone of the ledger: same layout and phases, its own separate data.
+// To switch it to the 4 yes/no steps instead, set `phases: ANIMATION_PHASES` and `yesNoPhases: true` below.
+const ANIMATION_PHASES = [
+  { n: 1, label: "Topic script" },
+  { n: 2, label: "Script changed to audio" },
+  { n: 3, label: "Video generated?" },
+  { n: 4, label: "SEO done?" },
+];
+const TRACKER_VARIANTS = {
+  history: {
+    collection: "tracker",
+    eyebrow: "HISTORY YOUTUBE CONTENT · PRODUCTION LEDGER",
+    heading: "Expedition Log",
+    backupPrefix: "history-youtube-content-backup",
+    phases: PHASES,
+  },
+  animation: {
+    collection: "animationTracker",
+    eyebrow: "ANIMATION CHANNEL · PRODUCTION LEDGER",
+    heading: "Animation Channel Content",
+    backupPrefix: "animation-channel-backup",
+    phases: PHASES,
+    yesNoPhases: false,
+  },
+};
+
+const seedState = (variant = "history") => {
   const now = Date.now();
   const mk = (p) => Object.assign({ 1: "pending", 2: "pending", 3: "skipped", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending", 9: "pending", 10: "pending" }, p); // old 10-phase shape; migrateTopics converts it
   return {
@@ -31,7 +57,7 @@ const seedState = () => {
       { id: "a2", name: "Account 2", note: "" },
       { id: "a3", name: "Account 3", note: "" },
     ],
-    topics: migrateTopics([
+    topics: variant === "animation" ? [] : migrateTopics([
       { id: "t1", name: "Nalanda Palm-Leaf Texts", accounts: ["a1"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Phase 7/8 pending.", updated: now },
       { id: "t2", name: "Baghdad Battery", accounts: ["a2"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full pipeline complete.", updated: now },
       { id: "t3", name: "Iron Pillar of Delhi", accounts: ["a3"], phases: mk({ 1: "done", 2: "done", 4: "done", 5: "done", 6: "done", 7: "done", 8: "done" }), source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "Full package compiled.", updated: now },
@@ -66,7 +92,7 @@ function timeAgo(ts) {
 
 // Brings older saved topics up to the current shape: single `account` -> `accounts`
 // array, and adds uploaded/uploadDetails if missing. Safe to run on already-migrated data.
-function migrateTopics(topics) {
+function migrateTopics(topics, keepPhases = false) {
   return (topics || []).map((t) => {
     const next = { ...t };
     if (!next.accounts) {
@@ -82,7 +108,7 @@ function migrateTopics(topics) {
     if (next.ytThumbnailCreated === undefined) next.ytThumbnailCreated = false;
     if (next.scheduleTime === undefined) next.scheduleTime = "";
     // One-time remap from the old 10-phase list to the new 8-phase list, keeping progress.
-    if (next.phaseSchema !== 2) {
+    if (!keepPhases && next.phaseSchema !== 2) {
       const old = next.phases || {};
       const g = (n) => old[n] || "pending";
       next.phases = { 1: g(1), 2: g(2), 3: g(4), 4: g(5), 5: g(6), 6: g(8), 7: g(7), 8: next.ytThumbnailCreated ? "done" : "pending" };
@@ -148,7 +174,12 @@ function LoginScreen() {
 }
 
 // ---------------- Main tracker ----------------
-function Tracker({ user, focusTopicId, onFocusConsumed }) {
+function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
+  const cfg = TRACKER_VARIANTS[variant] || TRACKER_VARIANTS.history;
+  const isAnimation = variant === "animation";
+  const yesNo = !!cfg.yesNoPhases; // yes/no step style instead of the status dots
+  const PHASES = cfg.phases; // shadows the history list for everything inside this page
+  const emptyPhases = () => Object.fromEntries(PHASES.map((p) => [p.n, "pending"]));
   const [state, setState] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [filterAccount, setFilterAccount] = useState("all");
@@ -174,7 +205,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
   const [syncFlash, setSyncFlash] = useState("");
   const saveTimer = useRef(null);
   const suppressNextSnapshot = useRef(false);
-  const docRef = useRef(doc(db, "users", user.uid, "tracker", "main"));
+  const docRef = useRef(doc(db, "users", user.uid, cfg.collection, "main"));
 
   useEffect(() => {
     let unsub;
@@ -182,10 +213,10 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
       const snap = await getDoc(docRef.current);
       if (snap.exists()) {
         const data = snap.data();
-        data.topics = migrateTopics(data.topics);
+        data.topics = migrateTopics(data.topics, isAnimation);
         setState(data);
       } else {
-        const seed = seedState();
+        const seed = seedState(variant);
         await setDoc(docRef.current, seed);
         setState(seed);
       }
@@ -198,7 +229,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
         }
         if (snap2.exists()) {
           const data2 = snap2.data();
-          data2.topics = migrateTopics(data2.topics);
+          data2.topics = migrateTopics(data2.topics, isAnimation);
           setState(data2);
           setSyncFlash("updated from another device");
           setTimeout(() => setSyncFlash(""), 2500);
@@ -230,6 +261,11 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
 
   const togglePhase = (topic, n) => {
     const cur = topic.phases[n] || "pending";
+    if (yesNo) {
+      // Animation steps are plain Yes / No questions — each one stands on its own.
+      updateTopic(topic.id, { phases: { ...topic.phases, [n]: cur === "done" ? "pending" : "done" } });
+      return;
+    }
     const next = cyclePhase(cur);
     const nextPhases = { ...topic.phases, [n]: next };
     // Marking a phase done implies every earlier phase is also done —
@@ -298,7 +334,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `history-youtube-content-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `${cfg.backupPrefix}-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -315,7 +351,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
       try {
         const parsed = JSON.parse(reader.result);
         if (!parsed.accounts || !parsed.topics) throw new Error("bad shape");
-        parsed.topics = migrateTopics(parsed.topics);
+        parsed.topics = migrateTopics(parsed.topics, isAnimation);
         setState(parsed);
       } catch {
         alert("That file doesn't look like a valid backup — restore cancelled.");
@@ -440,8 +476,8 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <div style={{ borderBottom: "1px solid #33475A", paddingBottom: 18, marginBottom: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>HISTORY YOUTUBE CONTENT · PRODUCTION LEDGER</div>
-            <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 30, fontWeight: 600, margin: 0 }}>Expedition Log</h1>
+            <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>{cfg.eyebrow}</div>
+            <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 30, fontWeight: 600, margin: 0 }}>{cfg.heading}</h1>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 11, color: "#8FA5B3" }}>{syncFlash}</div>
@@ -511,7 +547,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                     onClick={() => toggleDetail({ type: "phase", n: p.n })}
                     style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: active ? "rgba(201,165,75,0.12)" : "transparent", border: "none", borderRadius: 6, padding: "3px 6px", cursor: "pointer", textAlign: "left", color: "inherit" }}
                   >
-                    <div style={{ width: 130, fontSize: 11, color: "#B9C3CB", flexShrink: 0 }}>{p.n}. {p.label}</div>
+                    <div style={{ width: 150, fontSize: 11, color: "#B9C3CB", flexShrink: 0 }}>{p.n}. {p.label}</div>
                     <div style={{ flex: 1, height: 8, background: "#14212B", borderRadius: 4, overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: "#D9A73B" }} />
                     </div>
@@ -631,7 +667,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#D9A73B", display: "inline-block" }} /> in progress</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", border: "2px solid #33475A", display: "inline-block" }} /> not started</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#8C5A3C", display: "inline-block" }} /> skipped</span>
-          <span style={{ color: "#5A6E7C" }}>— tap a dot to cycle status</span>
+          <span style={{ color: "#5A6E7C" }}>{yesNo ? "— tap a dot to switch No / Yes" : "— tap a dot to cycle status"}</span>
         </div>
 
         {phasesSidebarOpen ? (
@@ -705,6 +741,25 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                 })}
               </div>
 
+              {yesNo ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                  {PHASES.map((p) => {
+                    const yes = (t.phases[p.n] || "pending") === "done";
+                    return (
+                      <button
+                        key={p.n}
+                        onClick={() => togglePhase(t, p.n)}
+                        title="Click to switch Yes / No"
+                        style={{ display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", padding: "2px 0", cursor: "pointer", textAlign: "left", color: "inherit" }}
+                      >
+                        <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, border: `2px solid ${yes ? "#4C9A5B" : "#33475A"}`, background: yes ? "#4C9A5B" : "transparent", color: "#FFFFFF", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>{yes ? "✓" : ""}</span>
+                        <span style={{ fontSize: 12, color: yes ? "#B9C3CB" : "#8FA5B3", flex: 1, minWidth: 0 }}>{p.n}. {p.label}</span>
+                        <span style={{ fontSize: 10, color: yes ? "#4C9A5B" : "#6B7D8C" }}>{yes ? "Yes" : "No"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>
                 {PHASES.map((p, i) => {
                   const status = t.phases[p.n] || "pending";
@@ -712,7 +767,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                     <React.Fragment key={p.n}>
                       <button
                         onClick={() => togglePhase(t, p.n)}
-                        title={`${p.label} — ${status}`}
+                        title={`${p.label} — ${yesNo ? (status === "done" ? "yes" : "no") : status}`}
                         style={{
                           width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
                           border: `2px solid ${status === "pending" ? "#33475A" : phaseColor(status)}`,
@@ -729,6 +784,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed }) {
                   );
                 })}
               </div>
+              )}
 
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "#6B7D8C" }} title="Yes makes this topic selectable in the Upload Schedule page's add-topic picker">TOPIC COMPLETED</div>
@@ -990,6 +1046,7 @@ function CountdownTimer() {
 function AppIcon({ name }) {
   const paths = {
     ledger: (<><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5z" /><path d="M8 7h6M8 11h6" /></>),
+    animation: (<><circle cx="12" cy="12" r="9" /><path d="M10 8.5l6 3.5-6 3.5z" /></>),
     flow: (<><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>),
     schedule: (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>),
     envgen: (<><path d="M3 20l6-10 4 6 3-4 5 8H3z" /><circle cx="17" cy="7" r="2" /></>),
@@ -1005,6 +1062,7 @@ function AppIcon({ name }) {
 
 const HOME_APPS = [
   { id: "ledger", tag: "TRACK", title: "Production Ledger", desc: "Track topics, accounts, and pipeline phases end to end." },
+  { id: "animation", tag: "TRACK", title: "Animation Channel Content", desc: "A clone of the Production Ledger for the animation channel, with its own separate topics and accounts." },
   { id: "flow", tag: "PLAN", title: "Flow Credits Planner", desc: "Split a script's scenes across your Google Flow accounts and track credits." },
   { id: "schedule", tag: "PUBLISH", title: "Upload Schedule", desc: "Calendar and list of planned and actual YouTube upload dates." },
   { id: "envgen", tag: "GENERATE", title: "Environment Prompt Generator", desc: "Fill in environment name/prompt pairs and get the full Flow master template." },
@@ -1043,6 +1101,7 @@ function NavShell({ page, onNavigate }) {
   const items = [
     { id: "home", label: "Home" },
     { id: "ledger", label: "Production Ledger" },
+    { id: "animation", label: "Animation Channel Content" },
     { id: "flow", label: "Flow Credits Planner" },
     { id: "schedule", label: "Upload Schedule" },
     { id: "envgen", label: "Environment Prompt Generator" },
@@ -1138,6 +1197,7 @@ export default function App() {
       <div key={page} className="page-transition">
         {page === "home" && <HomePage onNavigate={setPage} />}
         {page === "ledger" && <Tracker user={user} focusTopicId={focusTopicId} onFocusConsumed={() => setFocusTopicId(null)} />}
+        {page === "animation" && <Tracker user={user} variant="animation" />}
         {page === "flow" && <FlowPlanner user={user} />}
         {page === "schedule" && <SchedulePage user={user} onOpenTopic={openTopicInLedger} />}
         {page === "envgen" && <EnvPromptGenerator user={user} />}
