@@ -189,11 +189,11 @@ export default function SchedulePage({ user, onOpenTopic, variant = "history" })
     }
     if (entry.status === "planned") {
       patchTopic(entry.topicId, isAnimation
-        ? { uploaded: true, uploadedDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 6: "done" } }
+        ? { uploaded: true, uploadedDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 7: "done" } }
         : { uploaded: true, uploadedDate: entry.date });
     } else {
       patchTopic(entry.topicId, isAnimation
-        ? { uploaded: false, completionDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 6: "pending" } }
+        ? { uploaded: false, completionDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 7: "pending" } }
         : { uploaded: false, completionDate: entry.date });
     }
   };

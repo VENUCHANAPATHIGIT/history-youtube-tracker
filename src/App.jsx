@@ -27,9 +27,10 @@ const ANIMATION_PHASES = [
   { n: 1, label: "Script created" },
   { n: 2, label: "Speech generated" },
   { n: 3, label: "Animation generated" },
-  { n: 4, label: "SEO created for Instagram" },
-  { n: 5, label: "SEO created for YouTube" },
-  { n: 6, label: "Uploaded" },
+  { n: 4, label: "Video edit" },
+  { n: 5, label: "SEO created for Instagram" },
+  { n: 6, label: "SEO created for YouTube" },
+  { n: 7, label: "Uploaded" },
 ];
 const TRACKER_VARIANTS = {
   history: {
@@ -108,19 +109,33 @@ function migrateTopics(topics, keepPhases = false, isAnimation = false) {
     if (next.ytMetadataCreated === undefined) next.ytMetadataCreated = false;
     if (next.ytThumbnailCreated === undefined) next.ytThumbnailCreated = false;
     if (next.scheduleTime === undefined) next.scheduleTime = "";
-    // One-time migration for the animation tracker's new six-step workflow.
-    // Only carry over clearly corresponding progress; platform-specific SEO stays pending.
-    if (isAnimation && next.animationPhaseSchema !== 1) {
+    // Migrate animation topics to the seven-step workflow. Schema 1 is the
+    // previously shipped six-step layout, so preserve its statuses while
+    // inserting the new Video edit phase before both SEO phases.
+    if (isAnimation && next.animationPhaseSchema !== 2) {
       const old = next.phases || {};
-      next.phases = {
-        1: old[2] || "pending", // script generation
-        2: "pending",           // speech generation is newly tracked
-        3: old[6] || "pending", // video editing / animation production
-        4: "pending",           // Instagram SEO needs explicit confirmation
-        5: "pending",           // YouTube SEO needs explicit confirmation
-        6: next.uploaded ? "done" : "pending",
-      };
-      next.animationPhaseSchema = 1;
+      if (next.animationPhaseSchema === 1) {
+        next.phases = {
+          1: old[1] || "pending",
+          2: old[2] || "pending",
+          3: old[3] || "pending",
+          4: "pending", // newly added Video edit phase
+          5: old[4] || "pending",
+          6: old[5] || "pending",
+          7: next.uploaded ? "done" : (old[6] || "pending"),
+        };
+      } else {
+        next.phases = {
+          1: old[2] || "pending", // script generation
+          2: "pending",           // speech generation is newly tracked
+          3: old[6] || "pending", // animation generated
+          4: "pending",           // video edit
+          5: "pending",           // Instagram SEO
+          6: "pending",           // YouTube SEO
+          7: next.uploaded ? "done" : "pending",
+        };
+      }
+      next.animationPhaseSchema = 2;
     }
     // One-time remap from the old 10-phase list to the new 8-phase list, keeping progress.
     if (!isAnimation && !keepPhases && next.phaseSchema !== 2) {
@@ -292,7 +307,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
         }
       });
     }
-    updateTopic(topic.id, isAnimation && n === 6 ? { phases: nextPhases, uploaded: next === "done" } : { phases: nextPhases });
+    updateTopic(topic.id, isAnimation && n === 7 ? { phases: nextPhases, uploaded: next === "done" } : { phases: nextPhases });
   };
 
   const addTopic = () => {
@@ -300,7 +315,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), phaseSchema: 2, animationPhaseSchema: isAnimation ? 1 : undefined, source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), phaseSchema: 2, animationPhaseSchema: isAnimation ? 2 : undefined, source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -735,25 +750,16 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
                 </div>
               </div>
 
-              <div style={{ position: "relative", marginBottom: 12 }}>
-                <button
-                  onClick={() => setAccountDropdownOpen((o) => ({ ...o, [t.id]: !o[t.id] }))}
-                  style={{ width: "100%", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#14212B", color: "#B9C3CB", border: "1px solid #3D5468", borderRadius: 4, padding: "8px 10px", fontSize: 11 }}
-                >
-                  <span>{(t.accounts || []).length ? state.accounts.filter((a) => (t.accounts || []).includes(a.id)).map((a) => a.name).join(", ") : "Select accounts"}</span>
-                  <span>{accountDropdownOpen[t.id] ? "▴" : "▾"}</span>
-                </button>
-                {accountDropdownOpen[t.id] && (
-                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, background: "#14212B", border: "1px solid #3D5468", borderRadius: 5, padding: 8, boxShadow: "0 8px 20px rgba(0,0,0,.35)" }}>
-                    {state.accounts.map((a) => (
-                      <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", fontSize: 11, color: "#B9C3CB", cursor: "pointer" }}>
-                        <input type="checkbox" checked={(t.accounts || []).includes(a.id)} onChange={() => toggleTopicAccount(t.id, a.id)} />
-                        {a.name}
-                      </label>
-                    ))}
-                    <button onClick={() => setAccountDropdownOpen((o) => ({ ...o, [t.id]: false }))} style={{ marginTop: 5, width: "100%", padding: "5px", background: "#2C4053", color: "#E9E1CC", border: "none", borderRadius: 3, fontSize: 10 }}>Done</button>
-                  </div>
-                )}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 5 }}>ACCOUNTS — SELECT ONE OR MORE</div>
+                <div className="topic-account-scroll" style={{ maxHeight: 92, overflowY: "scroll", overscrollBehavior: "contain", background: "#14212B", border: "1px solid #3D5468", borderRadius: 5, padding: "5px 8px" }}>
+                  {state.accounts.map((a) => (
+                    <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 27, fontSize: 11, color: "#B9C3CB", cursor: "pointer" }}>
+                      <input type="checkbox" checked={(t.accounts || []).includes(a.id)} onChange={() => toggleTopicAccount(t.id, a.id)} />
+                      <span>{a.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               {yesNo ? (
@@ -823,13 +829,13 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
                 <div style={{ fontSize: 10, color: "#6B7D8C" }}>{isAnimation ? "UPLOAD STATUS" : "YOUTUBE STATUS"}</div>
                 <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
                   <button
-                    onClick={() => updateTopic(t.id, isAnimation ? { uploaded: false, phases: { ...t.phases, 6: "pending" } } : { uploaded: false })}
+                    onClick={() => updateTopic(t.id, isAnimation ? { uploaded: false, phases: { ...t.phases, 7: "pending" } } : { uploaded: false })}
                     style={{ fontSize: 11, padding: "5px 12px", border: "none", background: !t.uploaded ? "#2C4053" : "transparent", color: !t.uploaded ? "#E9E1CC" : "#6B7D8C" }}
                   >
                     Not Uploaded
                   </button>
                   <button
-                    onClick={() => { updateTopic(t.id, isAnimation ? { uploaded: true, phases: { ...t.phases, 6: "done" } } : { uploaded: true }); setUploadModalTopicId(t.id); }}
+                    onClick={() => { updateTopic(t.id, isAnimation ? { uploaded: true, phases: { ...t.phases, 7: "done" } } : { uploaded: true }); setUploadModalTopicId(t.id); }}
                     style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.uploaded ? "#4C9A5B" : "transparent", color: t.uploaded ? "#FFFFFF" : "#6B7D8C" }}
                   >
                     Uploaded
