@@ -201,8 +201,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
   const [filterTopic, setFilterTopic] = useState("all");
   const [filterCompleted, setFilterCompleted] = useState("all");
   const [filterUploaded, setFilterUploaded] = useState("all");
-  const [checklistOpen, setChecklistOpen] = useState({}); // topic id -> bool, defaults to collapsed
-  const toggleChecklist = (topicId) => setChecklistOpen((c) => ({ ...c, [topicId]: !c[topicId] }));
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState({});
   const [phasesSidebarOpen, setPhasesSidebarOpen] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(true);
   const [trackerDetail, setTrackerDetail] = useState(null); // {type:"phase",n} | {type:"all"|"done"|"progress"}
@@ -736,24 +735,25 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                {state.accounts.map((a) => {
-                  const active = (t.accounts || []).includes(a.id);
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => toggleTopicAccount(t.id, a.id)}
-                      style={{
-                        fontSize: 11, borderRadius: 4, padding: "4px 9px", cursor: "pointer",
-                        background: active ? "#C9A54B" : "transparent",
-                        color: active ? "#FFFFFF" : "#8FA5B3",
-                        border: `1px solid ${active ? "#C9A54B" : "#3D5468"}`,
-                      }}
-                    >
-                      {a.name}
-                    </button>
-                  );
-                })}
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <button
+                  onClick={() => setAccountDropdownOpen((o) => ({ ...o, [t.id]: !o[t.id] }))}
+                  style={{ width: "100%", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#14212B", color: "#B9C3CB", border: "1px solid #3D5468", borderRadius: 4, padding: "8px 10px", fontSize: 11 }}
+                >
+                  <span>{(t.accounts || []).length ? state.accounts.filter((a) => (t.accounts || []).includes(a.id)).map((a) => a.name).join(", ") : "Select accounts"}</span>
+                  <span>{accountDropdownOpen[t.id] ? "▴" : "▾"}</span>
+                </button>
+                {accountDropdownOpen[t.id] && (
+                  <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, background: "#14212B", border: "1px solid #3D5468", borderRadius: 5, padding: 8, boxShadow: "0 8px 20px rgba(0,0,0,.35)" }}>
+                    {state.accounts.map((a) => (
+                      <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", fontSize: 11, color: "#B9C3CB", cursor: "pointer" }}>
+                        <input type="checkbox" checked={(t.accounts || []).includes(a.id)} onChange={() => toggleTopicAccount(t.id, a.id)} />
+                        {a.name}
+                      </label>
+                    ))}
+                    <button onClick={() => setAccountDropdownOpen((o) => ({ ...o, [t.id]: false }))} style={{ marginTop: 5, width: "100%", padding: "5px", background: "#2C4053", color: "#E9E1CC", border: "none", borderRadius: 3, fontSize: 10 }}>Done</button>
+                  </div>
+                )}
               </div>
 
               {yesNo ? (
@@ -819,49 +819,6 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 12 }}>
-                <button
-                  onClick={() => toggleChecklist(t.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: 0, width: "fit-content" }}
-                >
-                  <span style={{ fontSize: 10, color: "#6B7D8C" }}>{checklistOpen[t.id] ? "▾" : "▸"} YOUTUBE CHECKLIST</span>
-                  <span style={{ fontSize: 10, color: "#5A6E7C" }}>
-                    ({[t.ytShortCreated, t.ytMetadataCreated, t.ytThumbnailCreated].filter(Boolean).length}/3)
-                  </span>
-                </button>
-                {checklistOpen[t.id] && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8, paddingLeft: 4 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
-                      <input
-                        type="checkbox"
-                        checked={!!t.ytShortCreated}
-                        onChange={(e) => updateTopic(t.id, { ytShortCreated: e.target.checked })}
-                        style={{ width: 14, height: 14 }}
-                      />
-                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube Short created?</span>
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
-                      <input
-                        type="checkbox"
-                        checked={!!t.ytMetadataCreated}
-                        onChange={(e) => updateTopic(t.id, { ytMetadataCreated: e.target.checked })}
-                        style={{ width: 14, height: 14 }}
-                      />
-                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube metadata created?</span>
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "fit-content" }}>
-                      <input
-                        type="checkbox"
-                        checked={!!t.ytThumbnailCreated}
-                        onChange={(e) => updateTopic(t.id, { ytThumbnailCreated: e.target.checked })}
-                        style={{ width: 14, height: 14 }}
-                      />
-                      <span style={{ fontSize: 12, color: "#B9C3CB" }}>YouTube thumbnail created?</span>
-                    </label>
-                  </div>
-                )}
-              </div>
-
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "#6B7D8C" }}>{isAnimation ? "UPLOAD STATUS" : "YOUTUBE STATUS"}</div>
                 <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
@@ -886,26 +843,6 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
               </div>
 
               <textarea value={t.notes} onChange={(e) => updateTopic(t.id, { notes: e.target.value })} placeholder="Notes — blockers, decisions pending, rate limits hit…" style={{ width: "100%" }} />
-
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>SOURCE</div>
-                <textarea
-                  value={t.source || ""}
-                  onChange={(e) => updateTopic(t.id, { source: e.target.value })}
-                  placeholder="Where you gathered info from — book, site, paper, documentary…"
-                  style={{ width: "100%", minHeight: 34 }}
-                />
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 10, color: "#6B7D8C", marginBottom: 3 }}>CLAUDE CHAT USED FOR PROMPTS</div>
-                <input
-                  value={t.claudeChat || ""}
-                  onChange={(e) => updateTopic(t.id, { claudeChat: e.target.value })}
-                  placeholder="Link to the Claude conversation used to generate this topic's prompts"
-                  style={{ width: "100%" }}
-                />
-              </div>
 
               <div style={{ fontSize: 10, color: "#5A6E7C", marginTop: 8, textAlign: "right" }}>updated {timeAgo(t.updated)}</div>
             </div>
@@ -1064,6 +1001,7 @@ function AppIcon({ name }) {
     animation: (<><circle cx="12" cy="12" r="9" /><path d="M10 8.5l6 3.5-6 3.5z" /></>),
     flow: (<><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" /><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>),
     schedule: (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>),
+    animationSchedule: (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /><path d="M8 14h3M8 17h6" /></>),
     envgen: (<><path d="M3 20l6-10 4 6 3-4 5 8H3z" /><circle cx="17" cy="7" r="2" /></>),
     scenegen: (<><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-8 9" /></>),
     videogen: (<><rect x="3" y="5" width="14" height="14" rx="2" /><path d="M17 10l4-2v8l-4-2" /></>),
@@ -1080,6 +1018,7 @@ const HOME_APPS = [
   { id: "animation", tag: "TRACK", title: "Animation Channel Content", desc: "A clone of the Production Ledger for the animation channel, with its own separate topics and accounts." },
   { id: "flow", tag: "PLAN", title: "Flow Credits Planner", desc: "Split a script's scenes across your Google Flow accounts and track credits." },
   { id: "schedule", tag: "PUBLISH", title: "Upload Schedule", desc: "Calendar and list of planned and actual YouTube upload dates." },
+  { id: "animationSchedule", tag: "PUBLISH", title: "2D Animation Upload Schedule", desc: "Daily Shorts upload calendar for the 2D Animation channel." },
   { id: "envgen", tag: "GENERATE", title: "Environment Prompt Generator", desc: "Fill in environment name/prompt pairs and get the full Flow master template." },
   { id: "scenegen", tag: "GENERATE", title: "Scene Image Prompt Generator", desc: "Paste your scene prompts and get the batch-processing master template." },
   { id: "videogen", tag: "GENERATE", title: "Image-to-Video Prompt Generator", desc: "Paste your S# video prompts and get the Phase 7 master template." },
@@ -1119,6 +1058,7 @@ function NavShell({ page, onNavigate }) {
     { id: "animation", label: "Animation Channel Content" },
     { id: "flow", label: "Flow Credits Planner" },
     { id: "schedule", label: "Upload Schedule" },
+    { id: "animationSchedule", label: "2D Animation Upload Schedule" },
     { id: "envgen", label: "Environment Prompt Generator" },
     { id: "scenegen", label: "Scene Image Prompt Generator" },
     { id: "videogen", label: "Image-to-Video Prompt Generator" },
@@ -1215,6 +1155,7 @@ export default function App() {
         {page === "animation" && <Tracker user={user} variant="animation" />}
         {page === "flow" && <FlowPlanner user={user} />}
         {page === "schedule" && <SchedulePage user={user} onOpenTopic={openTopicInLedger} />}
+        {page === "animationSchedule" && <SchedulePage user={user} variant="animation" onOpenTopic={(topicId) => { setFocusTopicId(topicId); setPage("animation"); }} />}
         {page === "envgen" && <EnvPromptGenerator user={user} />}
         {page === "scenegen" && <ScenePromptGenerator user={user} />}
         {page === "videogen" && <VideoPromptGenerator user={user} />}

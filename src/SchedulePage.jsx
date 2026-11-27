@@ -48,7 +48,10 @@ function buildEntries(topics, customEntries) {
   });
 }
 
-export default function SchedulePage({ user, onOpenTopic }) {
+export default function SchedulePage({ user, onOpenTopic, variant = "history" }) {
+  const isAnimation = variant === "animation";
+  const scheduleCollection = isAnimation ? "animationTracker" : "tracker";
+  const weeklyRhythm = isAnimation ? Array(7).fill("short") : WEEKLY_RHYTHM;
   const [topics, setTopics] = useState(null);
   const [customEntries, setCustomEntries] = useState([]);
   const [dayTypes, setDayTypes] = useState({}); // weekday index (0-6) -> "both" | "short" | "full" | "none"
@@ -60,7 +63,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
   const [shortsOpen, setShortsOpen] = useState(true);
   const [saveState, setSaveState] = useState("synced");
   const suppressNextSnapshot = useRef(false);
-  const docRef = useRef(doc(db, "users", user.uid, "tracker", "main"));
+  const docRef = useRef(doc(db, "users", user.uid, scheduleCollection, "main"));
 
   useEffect(() => {
     let unsub;
@@ -185,9 +188,13 @@ export default function SchedulePage({ user, onOpenTopic }) {
       return;
     }
     if (entry.status === "planned") {
-      patchTopic(entry.topicId, { uploaded: true, uploadedDate: entry.date });
+      patchTopic(entry.topicId, isAnimation
+        ? { uploaded: true, uploadedDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 6: "done" } }
+        : { uploaded: true, uploadedDate: entry.date });
     } else {
-      patchTopic(entry.topicId, { uploaded: false, completionDate: entry.date });
+      patchTopic(entry.topicId, isAnimation
+        ? { uploaded: false, completionDate: entry.date, phases: { ...(topics.find((t) => t.id === entry.topicId)?.phases || {}), 6: "pending" } }
+        : { uploaded: false, completionDate: entry.date });
     }
   };
 
@@ -210,11 +217,14 @@ export default function SchedulePage({ user, onOpenTopic }) {
   // full "Topic Completed" flag, since a short is often ready before the full video is.
   // A topic can be both a full video AND a short at once, so these two lists
   // are not mutually exclusive — a topic marked as a short still shows up here too.
-  const schedulableFullVideos = schedulableTopics;
-  const schedulableShorts = (topics || []).filter((t) => t.ytShortCreated && !t.uploaded);
-  // For the SHORTS panel display — every short regardless of upload status,
-  // so it's a complete list, not just the ones still needing a date.
-  const allShorts = (topics || []).filter((t) => t.ytShortCreated);
+  const schedulableFullVideos = isAnimation ? [] : schedulableTopics;
+  const schedulableShorts = isAnimation
+    ? (topics || []).filter((t) => !t.uploaded)
+    : (topics || []).filter((t) => t.ytShortCreated && !t.uploaded);
+  // Animation-channel topics are all treated as daily Shorts on this schedule.
+  const allShorts = isAnimation
+    ? (topics || [])
+    : (topics || []).filter((t) => t.ytShortCreated);
 
   const assignTopicToDay = (topicId, iso) => {
     patchTopic(topicId, { completionDate: iso });
@@ -231,8 +241,8 @@ export default function SchedulePage({ user, onOpenTopic }) {
       <div style={{ maxWidth: 960, margin: "0 auto", paddingLeft: 40 }}>
         <div style={{ borderBottom: "1px solid #33475A", paddingBottom: 18, marginBottom: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>HISTORY YOUTUBE CONTENT</div>
-            <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 30, fontWeight: 600, margin: 0 }}>Upload Schedule</h1>
+            <div style={{ fontSize: 11, letterSpacing: "2.5px", color: "#5C8A80", marginBottom: 6 }}>{isAnimation ? "2D ANIMATION CHANNEL" : "HISTORY YOUTUBE CONTENT"}</div>
+            <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: 30, fontWeight: 600, margin: 0 }}>{isAnimation ? "2D Animation Upload Schedule" : "Upload Schedule"}</h1>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 11, color: saveState === "synced" ? "#4C9A5B" : "#6B7D8C" }}>{saveState}</div>
@@ -249,9 +259,10 @@ export default function SchedulePage({ user, onOpenTopic }) {
         {/* Weekly rhythm reference */}
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
           <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 10 }}>ACTUAL UPLOAD PLAN</div>
+          {isAnimation && <div style={{ fontSize: 11, color: "#8FA5B3", marginBottom: 10 }}>One 2D Animation Short every day — Monday to Sunday.</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, fontSize: 11 }}>
             {DAY_LABELS.map((label, i) => {
-              const plan = WEEKLY_RHYTHM[i] === "short" ? "Short only" : "Long-form + Short";
+              const plan = weeklyRhythm[i] === "short" ? "Short only" : "Long-form + Short";
               return (
                 <div key={label} style={{ textAlign: "center" }}>
                   <div style={{ color: "#8FA5B3", marginBottom: 3 }}>{label[0]}{label.slice(1).toLowerCase()}</div>
@@ -265,11 +276,11 @@ export default function SchedulePage({ user, onOpenTopic }) {
         {/* Planned weekly schedule — editable version: choose a video type per weekday and add topics directly */}
         <div style={{ background: "#1D2E3B", border: "1px solid #2C4053", borderRadius: 10, padding: 14, marginBottom: 22 }}>
           <div style={{ fontSize: 10, color: "#C9A54B", marginBottom: 4 }}>PLANNED WEEKLY SCHEDULE</div>
-          <div style={{ fontSize: 10, color: "#5A6E7C", marginBottom: 10 }}>Set what type of video goes out each day, and add topics straight from here.</div>
+          <div style={{ fontSize: 10, color: "#5A6E7C", marginBottom: 10 }}>{isAnimation ? "Plan one Short for every day, and add topics straight from here." : "Set what type of video goes out each day, and add topics straight from here."}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6, fontSize: 11 }}>
             {weekDays.map((d, i) => {
               const iso = isoDate(d);
-              const dayType = dayTypes[i] || "none";
+              const dayType = isAnimation ? "short" : (dayTypes[i] || "none");
               return (
                 <div key={iso} style={{ textAlign: "center", minWidth: 0 }}>
                   <div style={{ color: "#8FA5B3", marginBottom: 4 }}>{DAY_LABELS[i][0]}{DAY_LABELS[i].slice(1).toLowerCase()} {d.getDate()}</div>
@@ -278,10 +289,12 @@ export default function SchedulePage({ user, onOpenTopic }) {
                     onChange={(e) => updateDayType(i, e.target.value)}
                     style={{ width: "100%", fontSize: 10, padding: "4px 2px", marginBottom: 6 }}
                   >
-                    <option value="none">— none —</option>
-                    <option value="both">Long-form + Short</option>
-                    <option value="full">Long-form only</option>
-                    <option value="short">Short only</option>
+                    {!isAnimation && <option value="none">— none —</option>}
+                    {isAnimation ? <option value="short">Short only</option> : <>
+                      <option value="both">Long-form + Short</option>
+                      <option value="full">Long-form only</option>
+                      <option value="short">Short only</option>
+                    </>}
                   </select>
                   <button
                     onClick={() => setPickerDate(iso)}
@@ -413,7 +426,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button
                     onClick={() => toggleStatus(e)}
-                    style={{ fontSize: 11, background: "transparent", border: `1px solid ${e.status === "posted" ? "#4C9A5B" : "#D9A73B"}`, color: e.status === "posted" ? "#4C9A5B" : "#D9A73B", borderRadius: 4, padding: "2px 8px" }}
+                    style={{ fontSize: 11, background: "transparent", border: `1px solid ${e.status === "posted" ? "#16A34A" : "#D97706"}`, color: e.status === "posted" ? "#16A34A" : "#D97706", borderRadius: 4, padding: "2px 8px" }}
                   >
                     {e.status === "posted" ? "Posted" : "Planned"}
                   </button>
@@ -428,7 +441,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                   <button
                     onClick={() => removeFromSchedule(e)}
                     title="Remove from schedule"
-                    style={{ fontSize: 13, background: "transparent", border: "none", color: "#8C5A3C", cursor: "pointer", padding: "0 2px" }}
+                    style={{ fontSize: 13, background: "transparent", border: "none", color: "#DC2626", cursor: "pointer", padding: "0 2px" }}
                   >
                     ×
                   </button>
@@ -459,7 +472,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                       <button onClick={() => openTopic(t.id)} style={{ background: "transparent", border: "none", color: "#E9E1CC", cursor: "pointer", padding: 0, textAlign: "left", flex: "1 1 160px" }}>
                         {t.name}
                       </button>
-                      <span style={{ fontSize: 11, color: "#4C9A5B", background: "transparent", border: "1px solid #4C9A5B", borderRadius: 4, padding: "3px 8px" }}>
+                      <span style={{ fontSize: 11, color: "#16A34A", background: "transparent", border: "1px solid #16A34A", borderRadius: 4, padding: "3px 8px" }}>
                         Posted{(t.uploadedDate || t.uploadDetails?.publishDate) ? ` · ${t.uploadedDate || t.uploadDetails?.publishDate}` : ""}
                       </span>
                     </div>
@@ -488,7 +501,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                             const iso = shortDateDrafts[t.id] || t.completionDate;
                             if (iso) assignTopicToDay(t.id, iso);
                           }}
-                          style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
+                          style={{ background: "#C9A54B", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "6px 10px", fontWeight: 600, fontSize: 11 }}
                         >
                           {t.completionDate ? "Update" : "Add to day"}
                         </button>
@@ -534,7 +547,7 @@ export default function SchedulePage({ user, onOpenTopic }) {
                 />
                 <button
                   onClick={() => addCustomEntry(pickerDate, customDraftText)}
-                  style={{ background: "#C9A54B", color: "#14212B", border: "none", borderRadius: 4, padding: "6px 12px", fontWeight: 600, fontSize: 12 }}
+                  style={{ background: "#C9A54B", color: "#FFFFFF", border: "none", borderRadius: 4, padding: "6px 12px", fontWeight: 600, fontSize: 12 }}
                 >
                   Add
                 </button>
