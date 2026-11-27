@@ -22,13 +22,14 @@ const PHASES = [
 
 const emptyPhases = () => ({ 1: "pending", 2: "pending", 3: "pending", 4: "pending", 5: "pending", 6: "pending", 7: "pending", 8: "pending" });
 
-// The Animation Channel Content is a clone of the ledger: same layout and phases, its own separate data.
-// To switch it to the 4 yes/no steps instead, set `phases: ANIMATION_PHASES` and `yesNoPhases: true` below.
+// Animation Channel Content has its own six-step production workflow and separate data.
 const ANIMATION_PHASES = [
-  { n: 1, label: "Topic script" },
-  { n: 2, label: "Script changed to audio" },
-  { n: 3, label: "Video generated?" },
-  { n: 4, label: "SEO done?" },
+  { n: 1, label: "Script created" },
+  { n: 2, label: "Speech generated" },
+  { n: 3, label: "Animation generated" },
+  { n: 4, label: "SEO created for Instagram" },
+  { n: 5, label: "SEO created for YouTube" },
+  { n: 6, label: "Uploaded" },
 ];
 const TRACKER_VARIANTS = {
   history: {
@@ -43,7 +44,7 @@ const TRACKER_VARIANTS = {
     eyebrow: "ANIMATION CHANNEL · PRODUCTION LEDGER",
     heading: "Animation Channel Content",
     backupPrefix: "animation-channel-backup",
-    phases: PHASES,
+    phases: ANIMATION_PHASES,
     yesNoPhases: false,
   },
 };
@@ -92,7 +93,7 @@ function timeAgo(ts) {
 
 // Brings older saved topics up to the current shape: single `account` -> `accounts`
 // array, and adds uploaded/uploadDetails if missing. Safe to run on already-migrated data.
-function migrateTopics(topics, keepPhases = false) {
+function migrateTopics(topics, keepPhases = false, isAnimation = false) {
   return (topics || []).map((t) => {
     const next = { ...t };
     if (!next.accounts) {
@@ -107,8 +108,22 @@ function migrateTopics(topics, keepPhases = false) {
     if (next.ytMetadataCreated === undefined) next.ytMetadataCreated = false;
     if (next.ytThumbnailCreated === undefined) next.ytThumbnailCreated = false;
     if (next.scheduleTime === undefined) next.scheduleTime = "";
+    // One-time migration for the animation tracker's new six-step workflow.
+    // Only carry over clearly corresponding progress; platform-specific SEO stays pending.
+    if (isAnimation && next.animationPhaseSchema !== 1) {
+      const old = next.phases || {};
+      next.phases = {
+        1: old[2] || "pending", // script generation
+        2: "pending",           // speech generation is newly tracked
+        3: old[6] || "pending", // video editing / animation production
+        4: "pending",           // Instagram SEO needs explicit confirmation
+        5: "pending",           // YouTube SEO needs explicit confirmation
+        6: next.uploaded ? "done" : "pending",
+      };
+      next.animationPhaseSchema = 1;
+    }
     // One-time remap from the old 10-phase list to the new 8-phase list, keeping progress.
-    if (!keepPhases && next.phaseSchema !== 2) {
+    if (!isAnimation && !keepPhases && next.phaseSchema !== 2) {
       const old = next.phases || {};
       const g = (n) => old[n] || "pending";
       next.phases = { 1: g(1), 2: g(2), 3: g(4), 4: g(5), 5: g(6), 6: g(8), 7: g(7), 8: next.ytThumbnailCreated ? "done" : "pending" };
@@ -213,7 +228,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
       const snap = await getDoc(docRef.current);
       if (snap.exists()) {
         const data = snap.data();
-        data.topics = migrateTopics(data.topics, isAnimation);
+        data.topics = migrateTopics(data.topics, isAnimation, isAnimation);
         setState(data);
       } else {
         const seed = seedState(variant);
@@ -229,7 +244,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
         }
         if (snap2.exists()) {
           const data2 = snap2.data();
-          data2.topics = migrateTopics(data2.topics, isAnimation);
+          data2.topics = migrateTopics(data2.topics, isAnimation, isAnimation);
           setState(data2);
           setSyncFlash("updated from another device");
           setTimeout(() => setSyncFlash(""), 2500);
@@ -278,7 +293,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
         }
       });
     }
-    updateTopic(topic.id, { phases: nextPhases });
+    updateTopic(topic.id, isAnimation && n === 6 ? { phases: nextPhases, uploaded: next === "done" } : { phases: nextPhases });
   };
 
   const addTopic = () => {
@@ -286,7 +301,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
     setState((s) => ({
       ...s,
       topics: [
-        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), phaseSchema: 2, source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
+        { id, name: "New Topic", accounts: s.accounts[0] ? [s.accounts[0].id] : [], phases: emptyPhases(), phaseSchema: 2, animationPhaseSchema: isAnimation ? 1 : undefined, source: "", claudeChat: "", startDate: "", completionDate: "", uploadedDate: "", completed: false, ytShortCreated: false, ytMetadataCreated: false, ytThumbnailCreated: false, scheduleTime: "", closed: false, uploaded: false, uploadDetails: { link: "", publishDate: "", notes: "" }, notes: "", updated: Date.now() },
         ...s.topics,
       ],
     }));
@@ -351,7 +366,7 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
       try {
         const parsed = JSON.parse(reader.result);
         if (!parsed.accounts || !parsed.topics) throw new Error("bad shape");
-        parsed.topics = migrateTopics(parsed.topics, isAnimation);
+        parsed.topics = migrateTopics(parsed.topics, isAnimation, isAnimation);
         setState(parsed);
       } catch {
         alert("That file doesn't look like a valid backup — restore cancelled.");
@@ -848,16 +863,16 @@ function Tracker({ user, focusTopicId, onFocusConsumed, variant = "history" }) {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-                <div style={{ fontSize: 10, color: "#6B7D8C" }}>YOUTUBE STATUS</div>
+                <div style={{ fontSize: 10, color: "#6B7D8C" }}>{isAnimation ? "UPLOAD STATUS" : "YOUTUBE STATUS"}</div>
                 <div style={{ display: "flex", border: "1px solid #33475A", borderRadius: 999, overflow: "hidden" }}>
                   <button
-                    onClick={() => updateTopic(t.id, { uploaded: false })}
+                    onClick={() => updateTopic(t.id, isAnimation ? { uploaded: false, phases: { ...t.phases, 6: "pending" } } : { uploaded: false })}
                     style={{ fontSize: 11, padding: "5px 12px", border: "none", background: !t.uploaded ? "#2C4053" : "transparent", color: !t.uploaded ? "#E9E1CC" : "#6B7D8C" }}
                   >
                     Not Uploaded
                   </button>
                   <button
-                    onClick={() => { updateTopic(t.id, { uploaded: true }); setUploadModalTopicId(t.id); }}
+                    onClick={() => { updateTopic(t.id, isAnimation ? { uploaded: true, phases: { ...t.phases, 6: "done" } } : { uploaded: true }); setUploadModalTopicId(t.id); }}
                     style={{ fontSize: 11, padding: "5px 12px", border: "none", background: t.uploaded ? "#4C9A5B" : "transparent", color: t.uploaded ? "#FFFFFF" : "#6B7D8C" }}
                   >
                     Uploaded
